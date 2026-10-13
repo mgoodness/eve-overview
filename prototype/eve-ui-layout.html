@@ -65,6 +65,9 @@ body{background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-R
 .hud .lock{width:24px;height:24px;border:1px solid var(--hostile);border-radius:3px;background:rgba(255,107,107,.12)}
 .deck{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:6;display:flex;gap:6px}
 .deck .win{position:relative}
+/* watch list — shown on demand, centred directly above the d-scan/fleet pane */
+.watchlist{display:none}
+body.wl-on .watchlist{display:flex}
 .watermark{position:absolute;top:8px;right:10px;color:#3a4452;font-size:10px;letter-spacing:2px;text-transform:uppercase;pointer-events:none}
 .proto{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 .tip{position:static;max-width:380px;text-align:center;color:var(--muted);font-size:11px;
@@ -78,6 +81,8 @@ body{background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-R
 .switcher button{border:0;background:#0b0e13;color:#f4f7fb;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px}
 .switcher .lbl{min-width:230px;text-align:center;font-size:12px}
 .switcher .k{color:#5a6472;font-weight:500}
+.switcher .wl{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:#3a4452}
+.switcher .wl input{accent-color:#0b0e13}
 </style>
 </head>
 <body>
@@ -88,6 +93,7 @@ body{background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-R
     <button id="prev" aria-label="Previous variant">←</button>
     <span class="lbl" id="lbl"></span>
     <button id="next" aria-label="Next variant">→</button>
+    <label class="wl"><input type="checkbox" id="wl" checked> watch list</label>
     <span class="k">?variant=</span>
   </div>
 </div>
@@ -113,7 +119,7 @@ const FLEET = ['(FC) Aria Vex','Morgan L.','Rin A.','Tao B.'];
 const row = r => `<div class="row"><span class="tag ${r.cls}">${r.tag}</span><span class="name">${r.name}</span><span class="type">${r.type}</span><span class="dist">${r.dist}</span></div>`;
 const rows = list => `<div class="rows">${list.map(row).join('')}</div>`;
 
-const win = (style,title,sub,body) => `<section class="win" style="${style}">
+const win = (style,title,sub,body,cls='') => `<section class="win ${cls}" style="${style}">
   <div class="bar"><span class="dot"></span><span class="t">${title}</span><span class="s">${sub||''}</span></div>
   <div class="body">${body}</div></section>`;
 
@@ -216,6 +222,10 @@ function buildD(){
   </div>`;
   return [
     hud, deck,
+    win('left:calc(50% - 138px);bottom:170px;width:242px;height:150px','Watch List','shown on demand',
+        `<div class="rows">${[['FC Aria Vex','82','f'],['Logi Morgan','61','n'],['Scout Rin','94','f'],['Ivo P.','48','n']].map(([n,p,c])=>
+          `<div class="row" style="grid-template-columns:1fr 52px"><span class="name ${c}">${n}</span><span class="dist">${p}%</span></div>`).join('')}</div>
+         <div style="padding:6px 10px;color:var(--muted)">FC · logi · scout</div>`, 'watchlist'),
     win('left:8px;top:8px;width:108px;height:198px','Local','9',
         `<div class="local" style="columns:1">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>`),
     win('left:8px;bottom:8px;width:520px;height:234px','Comms','stacked',
@@ -237,7 +247,7 @@ const VARIANTS = {
   A:{name:'Single overview',       why:'One tall overview with tabs; the classic, and the one that forces tab-flipping to aim d-scan.', build:buildA},
   B:{name:'Two overview windows',  why:'Working list stays the shooting list; a second Navigation window carries celestials + the hole, so d-scan and bookmarks never cost a tab change.', build:buildB},
   C:{name:'Wormhole cockpit',      why:'A dashboard: status strip, two equal overview panes, d-scan docked with its controls, local/fleet rail, probe status visible.', build:buildC},
-  D:{name:'Yours: HUD top, deck bottom', why:'HUD centred at the top; bookmarks + probe scanner centred at the bottom with the Fleet window stacked onto d-scan; Local a minimum-width strip at top-left; the comms stack (Fleet/Corp/Alliance/Pvt) lower-left. Watch list still undecided.', build:buildD},
+  D:{name:'Yours: HUD top, deck bottom', why:'HUD centred at the top; bookmarks + probe scanner centred at the bottom with the Fleet window stacked onto d-scan; Local a minimum-width strip at top-left; the comms stack bottom-left; the Watch List (toggle below) centred above the Fleet/d-scan pane.', build:buildD},
 };
 const KEYS = Object.keys(VARIANTS);
 const client = document.getElementById('client');
@@ -270,6 +280,10 @@ addEventListener('keydown', e => {
   if(e.key==='ArrowRight') go(1);
 });
 addEventListener('popstate', render);
+const wl = document.getElementById('wl');
+const syncWatchList = () => document.body.classList.toggle('wl-on', wl.checked);
+wl.onchange = syncWatchList;
+syncWatchList();
 render();
 </script>
 </body>
