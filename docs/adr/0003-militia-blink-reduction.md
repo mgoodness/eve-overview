@@ -57,3 +57,11 @@ the spec names.
   difference in the militia States: no Blink on 44.
 - If the pack's militia treatment is ever revisited, this is the ADR that stops the
   author from "restoring" the 44 Blink on the assumption it was dropped by accident.
+
+## Prior art
+
+Signal Cartel's *Explorer's Overview* reached a similar conclusion from the other
+side: its changelog records that v1.5 **"Disabled blinking background for war
+targets"**. A deliberately small Blink set is established practice, not a quirk of
+this profile. See
+[`docs/research/overview-pack-landscape.md`](../research/overview-pack-landscape.md).

@@ -59,7 +59,8 @@ replace and creates the folder for you.
 3. Select `overview.yaml` in the left-hand list, click **Check All**, then
    **Import**.
 4. Some elements may not refresh until the UI reloads — **dock and undock once**
-   to force it.
+   to force it; if anything still looks stale, **log out and back in**, which is
+   the fallback other packs' instructions recommend.
 
 The ten tabs arrive configured; use the overview's tab strip to select them. The
 d-scan preset dropdown also lists all 62 presets, including the Z-S d-scan ones.
@@ -82,6 +83,10 @@ d-scan preset dropdown also lists all 62 presets, including the Z-S d-scan ones.
 - **Importing replaces the account's settings.** The import overwrites the
   account's presets, tabs, appearance and columns. Do the step-2 export first if
   you want to keep what you had.
+- **Same-named presets are overwritten.** Any preset in your profile whose name
+  matches one being imported is replaced, so an in-game edit to a Z-S preset does
+  not survive the next import of this profile. Edit under a new name if you want a
+  change to persist.
 - **Manual.** There is no install automation and none is planned: the client
   exposes no import-on-start hook, and this repository writes a file, not an
   installed program.
