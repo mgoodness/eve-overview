@@ -8,8 +8,10 @@
   THROWAWAY PROTOTYPE — not production, not merged to main.
 
   Question: "How should the client be arranged to fly the generated
-  wormhole-hunter profile?" Three structurally different layouts, switchable
-  with ?variant=A|B|C and the floating bar.
+  wormhole-hunter profile?" Four structurally different layouts, switchable
+  with ?variant=A|B|C|D and the floating bar. D is the maintainer's stated
+  preference: HUD centred at the top, scanner/bookmark cluster centred at the
+  bottom.
 
   It exists to be judged in the browser and then forgotten; the decision it
   settles lands in docs/, this file lands on a throwaway branch.
@@ -49,6 +51,20 @@ body{background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-R
 .ctl b{color:var(--accent);font-weight:600}
 .local{columns:2;padding:4px 8px}
 .local div{color:var(--neutral);padding:1px 0}
+
+/* variant D — HUD top-centre, navigation deck bottom-centre */
+.hud{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:16px;
+  background:var(--win);border:1px solid var(--line);border-radius:999px;padding:7px 18px;box-shadow:0 6px 24px rgba(0,0,0,.45)}
+.hud .cap{width:36px;height:36px;border-radius:50%;border:2px solid #2a3038;
+  background:conic-gradient(var(--accent) 0 71%, #232a33 71% 100%)}
+.hud .mods{display:flex;gap:4px}
+.hud .mod{width:28px;height:26px;border-radius:4px;background:var(--win2);border:1px solid var(--line);display:grid;place-items:center;font-size:9px;color:var(--muted)}
+.hud .read{color:var(--muted);font-size:10.5px;line-height:1.5}
+.hud .read b{color:var(--accent)}
+.hud .locks{display:flex;gap:4px}
+.hud .lock{width:24px;height:24px;border:1px solid var(--hostile);border-radius:3px;background:rgba(255,107,107,.12)}
+.deck{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:6;display:flex;gap:6px}
+.deck .win{position:relative}
 .watermark{position:absolute;top:8px;right:10px;color:#3a4452;font-size:10px;letter-spacing:2px;text-transform:uppercase;pointer-events:none}
 .tip{position:absolute;left:10px;top:8px;max-width:330px;color:var(--muted);font-size:10.5px;background:rgba(10,14,20,.72);border:1px solid var(--line);border-radius:4px;padding:6px 8px;pointer-events:none}
 .tip b{color:var(--text)}
@@ -173,11 +189,49 @@ function buildC(){
 }
 const SELCEL = () => ({tag:'W',cls:'bg-x',name:'Wormhole',type:'Wormhole',dist:'0 m'});
 
+/* ---------- Variant D — maintainer's layout: HUD top-centre, deck bottom-centre ---------- */
+function buildD(){
+  const hud = `<div class="hud">
+    <div class="cap"></div>
+    <div class="mods">${Array.from({length:8},(_,i)=>`<span class="mod">F${i+1}</span>`).join('')}</div>
+    <div class="locks"><span class="lock"></span><span class="lock"></span></div>
+    <div class="read">vel <b>1,204 m/s</b><br>cap <b>71%</b> · shield 82%</div>
+  </div>`;
+  const deck = `<div class="deck">
+    ${win('position:relative;width:198px;height:156px','Bookmarks','in-system', rows([
+      {tag:'◆',cls:'bg-x',name:'Home',type:'Wormhole',dist:'4.2 AU'},
+      {tag:'◆',cls:'bg-x',name:'Safe 1',type:'Bookmark',dist:'—'},
+      {tag:'◆',cls:'bg-x',name:'Ping — C4',type:'Bookmark',dist:'—'},
+      {tag:'◆',cls:'bg-x',name:'Deep safe',type:'Bookmark',dist:'—'},
+    ]))}
+    ${win('position:relative;width:242px;height:156px','D-Scan','DSCAN: Extra',
+      `<div class="ctl"><span>range <b>14.3 AU</b></span><span>angle <b>360°</b></span></div>` + rows([...SHIPS,SELCEL()]))}
+    ${win('position:relative;width:232px;height:156px','Probe Scanner','0 sigs',
+      `<div style="padding:8px 10px;color:var(--muted)">no signatures —<br>hole already resolved<br><span style="color:var(--friendly)">✓ bookmarked</span></div>`)}
+  </div>`;
+  return [
+    hud, deck,
+    win('left:8px;top:8px;width:224px;height:150px','Local','9 pilots',
+        `<div class="local">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>`),
+    win('left:8px;top:166px;width:224px;bottom:8px','Fleet &amp; Chat','4 members',
+        `<div class="rows" style="padding:4px 0">${FLEET.map(n=>`<div class="row" style="grid-template-columns:1fr"><span class="name f">${n}</span></div>`).join('')}</div>
+         <div style="padding:6px 8px;color:var(--muted);border-top:1px solid var(--line)">[intel] hole C4 &rarr; 3 jumps<br>watchlist: FC · logi · scout</div>`),
+    win('right:8px;top:8px;width:248px;bottom:8px','Working (list + brackets)','Engage',
+        overview(['Engage','PvE','Loot'],'Engage',[...SHIPS, CELESTIALS[0], CELESTIALS[1]])),
+    win('right:264px;top:8px;width:196px;height:214px','Navigation','Warp out',
+        overview(['Warp out','System'],'Warp out',CELESTIALS.slice(2))),
+    win('right:264px;top:228px;width:196px;height:172px','Selected Item','Loki',
+        `<div class="rows">${row(SHIPS[0])}</div>
+         <div style="padding:6px 10px;color:var(--muted)">angular 0.014 · 4,203 m</div>`),
+  ].join('');
+}
+
 /* ---------- switcher ---------- */
 const VARIANTS = {
   A:{name:'Single overview',       why:'One tall overview with tabs; the classic, and the one that forces tab-flipping to aim d-scan.', build:buildA},
   B:{name:'Two overview windows',  why:'Working list stays the shooting list; a second Navigation window carries celestials + the hole, so d-scan and bookmarks never cost a tab change.', build:buildB},
   C:{name:'Wormhole cockpit',      why:'A dashboard: status strip, two equal overview panes, d-scan docked with its controls, local/fleet rail, probe status visible.', build:buildC},
+  D:{name:'Yours: HUD top, deck bottom', why:'HUD centred at the top; bookmarks + d-scan + probe scanner clustered and centred at the bottom. Navigation tools live under the hand without ever spending an overview tab — at the cost of a shorter bottom edge for the overviews.', build:buildD},
 };
 const KEYS = Object.keys(VARIANTS);
 const client = document.getElementById('client');
@@ -186,7 +240,7 @@ const lbl = document.getElementById('lbl');
 
 function render(){
   const v = new URLSearchParams(location.search).get('variant');
-  const key = KEYS.includes(v) ? v : 'A';
+  const key = KEYS.includes(v) ? v : 'D';
   const variant = VARIANTS[key];
   client.innerHTML = variant.build();
   document.querySelectorAll('.win').forEach((w,i)=>w.style.setProperty('--i',i));
@@ -196,7 +250,7 @@ function render(){
 }
 function go(delta){
   const v = new URLSearchParams(location.search).get('variant');
-  const i = Math.max(0, KEYS.indexOf(KEYS.includes(v)?v:'A'));
+  const i = Math.max(0, KEYS.indexOf(KEYS.includes(v)?v:'D'));
   const next = KEYS[(i + delta + KEYS.length) % KEYS.length];
   history.replaceState(null,'',`?variant=${next}`);
   render();
