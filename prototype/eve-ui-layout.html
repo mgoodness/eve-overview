@@ -211,9 +211,9 @@ function buildD(){
   </div>`;
   return [
     hud, deck,
-    win('left:8px;top:8px;width:224px;height:150px','Local','9 pilots',
-        `<div class="local">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>`),
-    win('left:8px;top:166px;width:224px;bottom:8px','Fleet &amp; Chat','4 members',
+    win('left:8px;top:8px;width:108px;height:198px','Local','9',
+        `<div class="local" style="columns:1">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>`),
+    win('left:8px;top:214px;width:208px;bottom:8px','Fleet &amp; Chat','4 members',
         `<div class="rows" style="padding:4px 0">${FLEET.map(n=>`<div class="row" style="grid-template-columns:1fr"><span class="name f">${n}</span></div>`).join('')}</div>
          <div style="padding:6px 8px;color:var(--muted);border-top:1px solid var(--line)">[intel] hole C4 &rarr; 3 jumps<br>watchlist: FC · logi · scout</div>`),
     win('right:8px;top:8px;width:248px;bottom:8px','Working (list + brackets)','Engage',
@@ -231,7 +231,7 @@ const VARIANTS = {
   A:{name:'Single overview',       why:'One tall overview with tabs; the classic, and the one that forces tab-flipping to aim d-scan.', build:buildA},
   B:{name:'Two overview windows',  why:'Working list stays the shooting list; a second Navigation window carries celestials + the hole, so d-scan and bookmarks never cost a tab change.', build:buildB},
   C:{name:'Wormhole cockpit',      why:'A dashboard: status strip, two equal overview panes, d-scan docked with its controls, local/fleet rail, probe status visible.', build:buildC},
-  D:{name:'Yours: HUD top, deck bottom', why:'HUD centred at the top; bookmarks + d-scan + probe scanner clustered and centred at the bottom. Navigation tools live under the hand without ever spending an overview tab — at the cost of a shorter bottom edge for the overviews.', build:buildD},
+  D:{name:'Yours: HUD top, deck bottom', why:'HUD centred at the top; bookmarks + d-scan + probe scanner side-by-side and centred at the bottom; Local a minimum-width strip at top-left. Navigation tools live under the hand without spending an overview tab — at the cost of a shorter bottom edge for the overviews.', build:buildD},
 };
 const KEYS = Object.keys(VARIANTS);
 const client = document.getElementById('client');
