@@ -1,0 +1,72 @@
+name: Release
+
+# release-please creates the tag and a *draft* GitHub Release when its release
+# PR merges. `force-tag-creation` makes that tag exist immediately, which is
+# what triggers this workflow: it generates the profile, attaches it to the
+# draft, and only then publishes the release.
+#
+# Publishing last is what lets immutable releases be enabled — GitHub forbids
+# adding assets to a release once it is published.
+#
+# The tag is pushed by release-please's App, not GITHUB_TOKEN, so this trigger
+# actually fires: a GITHUB_TOKEN-authored tag would not (the loop-trap).
+on:
+  push:
+    tags:
+      - "v*"
+
+# Attaching assets and publishing the release need contents: write.
+permissions:
+  contents: write
+
+jobs:
+  attach-profile:
+    name: attach-profile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      # The generator fetches the pinned reference pack and SDE and verifies
+      # both against their SHA-256, so a release can only be built from the
+      # data the pins name. The pins it used ride in the profile's own header,
+      # and are repeated in the notes below.
+      - name: Generate profile
+        run: go run ./cmd/eve-overview generate -out overview.yaml
+      - name: Checksum the profile
+        run: sha256sum overview.yaml > SHA256SUMS
+      - name: Attach the profile and its checksums to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" overview.yaml SHA256SUMS --clobber
+      # release-please wrote the changelog; append the attribution, the
+      # reproducibility pins and the checksum of the asset a consumer downloads.
+      - name: Append attribution and checksums to the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" --json body --jq .body > generated-notes.md
+          {
+            cat generated-notes.md
+            printf '\n---\n\n'
+            cat docs/release-notes-template.md
+            printf '\n```\n'
+            cat SHA256SUMS
+            printf '```\n'
+          } > release-notes.md
+          gh release edit "$TAG" --notes-file release-notes.md
+      # Published last, once every asset is attached. With immutable releases
+      # on, this is the moment the tag and its assets lock and a release
+      # attestation is minted.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --draft=false

@@ -1,0 +1,55 @@
+# The profile-wide column configuration.
+#
+#   columnOrder     the master order of every column the client knows, which
+#                   per-Tab orders are drawn from.
+#   overviewColumns the subset shown on every Tab that does not override it.
+#
+# Column tokens are the client's exact uppercase strings.
+#
+#   columnOrder      the master order of every column the client knows, which
+#                    per-Tab orders are drawn from.
+#   overviewColumns  the subset shown on every Tab that does not override it.
+#   tabColumns       per-Tab overrides, keyed by markup-free Tab name. A Tab
+#                    not named here inherits overviewColumns; naming one pins
+#                    it, so the alts' Tabs (PvE, PI, Exploring) and Loot are
+#                    deliberately absent. The per-Tab order is generated from
+#                    columnOrder, so the two cannot drift apart.
+#
+# Tickets #2/#6 ship the Z-S v10.06.09 values; #6 adds the hunter overrides.
+columnOrder:
+  - ICON
+  - TAG
+  - DISTANCE
+  - NAME
+  - TYPE
+  - ALLIANCE
+  - CORPORATION
+  - FACTION
+  - MILITIA
+  - SIZE
+  - VELOCITY
+  - RADIALVELOCITY
+  - TRANSVERSALVELOCITY
+  - ANGULARVELOCITY
+overviewColumns:
+  - ALLIANCE
+  - ANGULARVELOCITY
+  - CORPORATION
+  - DISTANCE
+  - ICON
+  - NAME
+  - TRANSVERSALVELOCITY
+  - TYPE
+  - VELOCITY
+
+# The hunter's Tabs drop alliance and corporation: they pad a combat list with
+# rows the reader has no use for mid-fight. All three velocity columns stay, so
+# tackle arithmetic still has a target angular velocity to compare against
+# tracking.
+tabColumns:
+  Travel: [ANGULARVELOCITY, DISTANCE, ICON, NAME, TRANSVERSALVELOCITY, TYPE, VELOCITY]
+  Engage: [ANGULARVELOCITY, DISTANCE, ICON, NAME, TRANSVERSALVELOCITY, TYPE, VELOCITY]
+  Exit!: [ANGULARVELOCITY, DISTANCE, ICON, NAME, TRANSVERSALVELOCITY, TYPE, VELOCITY]
+  Holes: [ANGULARVELOCITY, DISTANCE, ICON, NAME, TRANSVERSALVELOCITY, TYPE, VELOCITY]
+  Fleet: [ANGULARVELOCITY, DISTANCE, ICON, NAME, TRANSVERSALVELOCITY, TYPE, VELOCITY]
+  Occupancy: [ANGULARVELOCITY, DISTANCE, ICON, NAME, TRANSVERSALVELOCITY, TYPE, VELOCITY]
