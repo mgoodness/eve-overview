@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +23,11 @@ import (
 // an in-process entry point.
 var binaryPath string
 
+// referenceUnavailable records that a smoke test could not read the pinned
+// reference pack. TestMain fails a non-short run that skipped on it, so an
+// offline cold cache cannot masquerade as a passing CLI.
+var referenceUnavailable bool
+
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "eve-overview-cli")
 	if err != nil {
@@ -37,7 +43,12 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "build CLI:", err)
 		os.Exit(1)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	if code == 0 && referenceUnavailable && !testing.Short() {
+		fmt.Fprintln(os.Stderr, "CLI smoke tests could not read the pinned reference pack and this was not a -short run; refusing to report success")
+		code = 1
+	}
+	os.Exit(code)
 }
 
 // seedReferenceData writes a Group matrix into a cache directory so the CLI
@@ -95,99 +106,53 @@ func readSource(t *testing.T, dir, name string) string {
 	return string(body)
 }
 
-// cliReferencePack is a minimal stand-in for the cached Z-S reference pack.
-// The CLI seeds it into the cache so tests never reach the network, and the
-// Presets mirror the ones the real roster binds: the leading Collidables Preset
-// proves the pack rides into the emitted profile, "✜ PvX: Exploring" is the
-// authored exploration Preset's copyOf base, and the rest satisfy the Tabs'
-// list and bracket bindings. A harness that seeded only some of them would make
-// the CLI smoke tests fail on a missing binding rather than on the behaviour
-// under test.
-const cliReferencePack = `presets:
-  - - "<color=0xFFFF6666>✜ = CovOps: Collidables</color>"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - []
-      - - groups
-        - - 6
-          - 1211
-  - - "<color=0xFFFF6666>✜ PvX: Exploring</color>"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - - 11
-      - - groups
-        - - 7
-  - - "<color=0xFFFFFFFF>✈ Travel (-Ship +Sta)</color>"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - - 11
-      - - groups
-        - - 10
-  - - "<color=0xFF66FF66>➲ Extra: Podsaver (!)</color>"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - []
-      - - groups
-        - - 29
-  - - "<color=0xFF66CCFF>✪ = Friendly: Fleet</color>"
-    - - - alwaysShownStates
-        - - 11
-      - - filteredStates
-        - - 9
-      - - groups
-        - - 25
-  - - "<color=0xFFFF6666>✜ PvX: Mission Filter (+LCO +LCS)</color>"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - - 11
-      - - groups
-        - - 226
-  - - "<color=0xFFFF6666>✜ PvX: PI</color>"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - - 11
-      - - groups
-        - - 8
-  - - "<color=0xFFFF6666>✜ PvX: Salvage/Loot</color>"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - - 11
-      - - groups
-        - - 186
-  - - "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - []
-      - - groups
-        - - 25
-  - - "⌘ Brackets: Warpout (!)"
-    - - - alwaysShownStates
-        - []
-      - - filteredStates
-        - []
-      - - groups
-        - - 29
-`
+// realReferencePack returns the pinned Z-S reference pack's bytes through the
+// same cache-and-checksum layer the CLI uses. The smoke tests seed the
+// checksum-addressed cache from it, so the CLI is exercised with the bytes the
+// pin actually describes rather than an arbitrary fixture that the read-time
+// checksum would rightly reject. A warm cache serves it with no network I/O;
+// ok is false when the pack can be neither read nor fetched, which the tests
+// skip on — loudly, through TestMain.
+func realReferencePack(t *testing.T) ([]byte, bool) {
+	t.Helper()
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		t.Logf("no user cache directory: %v", err)
+		return nil, false
+	}
+	pack, err := reference.New(filepath.Join(cacheDir, "eve-overview")).ReferencePack(context.Background())
+	if err != nil {
+		t.Logf("reference pack unavailable: %v", err)
+		return nil, false
+	}
+	return pack, true
+}
 
-// seedReferencePack writes a reference pack into the checksum-addressed cache
-// path, exactly as a warm cache would hold it after a verified fetch.
-func seedReferencePack(t *testing.T, cacheDir, pack string) {
+// seedReferencePack writes the pinned reference pack into the checksum-addressed
+// cache path, exactly as a warm cache would hold it after a verified fetch.
+func seedReferencePack(t *testing.T, cacheDir string, pack []byte) {
 	t.Helper()
 	cachePath := reference.ReferencePackCachePath(cacheDir)
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
 		t.Fatalf("create cache dir: %v", err)
 	}
-	if err := os.WriteFile(cachePath, []byte(pack), 0o644); err != nil {
+	if err := os.WriteFile(cachePath, pack, 0o644); err != nil {
 		t.Fatalf("seed reference pack cache: %v", err)
 	}
+}
+
+// seedPinnedReferencePack seeds the CLI's cache with the real pinned reference
+// pack, so a smoke test measures the CLI rather than a fixture the read-time
+// checksum cannot accept. It skips when the pack is unavailable, recording
+// that for TestMain so a cold offline cache does not look like a green CLI.
+func seedPinnedReferencePack(t *testing.T, cacheDir string) {
+	t.Helper()
+	pack, ok := realReferencePack(t)
+	if !ok {
+		referenceUnavailable = true
+		t.Skip("reference pack unavailable (offline with a cold cache?); skipping CLI smoke test — run without -short to require it")
+	}
+	seedReferencePack(t, cacheDir, pack)
 }
 
 // recordingTransport answers every request with a canned body (or error) and
@@ -226,7 +191,7 @@ func TestGenerateWritesProfileFromSourceTree(t *testing.T) {
 	sourceDir := repoSourceDir(t)
 	cacheDir := t.TempDir()
 	seedReferenceData(t, cacheDir, readSource(t, sourceDir, "groups.yaml"))
-	seedReferencePack(t, cacheDir, cliReferencePack)
+	seedPinnedReferencePack(t, cacheDir)
 
 	outPath := filepath.Join(t.TempDir(), "profile.yaml")
 	cmd := exec.Command(binaryPath, "generate",
@@ -275,7 +240,7 @@ func TestGenerateSucceedsOfflineFromCache(t *testing.T) {
 	sourceDir := repoSourceDir(t)
 	cacheDir := t.TempDir()
 	seedReferenceData(t, cacheDir, readSource(t, sourceDir, "groups.yaml"))
-	seedReferencePack(t, cacheDir, cliReferencePack)
+	seedPinnedReferencePack(t, cacheDir)
 
 	transport := &recordingTransport{err: errors.New("network disabled")}
 	withDefaultClient(t, transport)
@@ -322,11 +287,43 @@ func TestGenerateFailsOnReferencePackChecksumMismatch(t *testing.T) {
 	}
 }
 
+// TestGenerateFailsOnCorruptedReferencePackCache proves the warm-cache path
+// enforces the pin too, not only the download: a cache holding bytes that do
+// not hash to it aborts generation rather than feeding the generator tampered
+// data. Both artefacts are cached, so a passing run would need no network — and
+// the transport fails every request, so a silent re-download would be fatal.
+func TestGenerateFailsOnCorruptedReferencePackCache(t *testing.T) {
+	sourceDir := repoSourceDir(t)
+	cacheDir := t.TempDir()
+	seedReferenceData(t, cacheDir, readSource(t, sourceDir, "groups.yaml"))
+	seedReferencePack(t, cacheDir, []byte("presets:\n  - - tampered\n"))
+
+	transport := &recordingTransport{err: errors.New("network disabled")}
+	withDefaultClient(t, transport)
+
+	var stderr strings.Builder
+	code := run([]string{"generate",
+		"-source", sourceDir,
+		"-cache", cacheDir,
+		"-out", filepath.Join(t.TempDir(), "profile.yaml"),
+	}, io.Discard, &stderr)
+	if code == 0 {
+		t.Fatal("generate exited zero from a corrupted reference-pack cache, want non-zero")
+	}
+	if !strings.Contains(stderr.String(), "checksum mismatch") {
+		t.Errorf("stderr does not report a checksum mismatch: %q", stderr.String())
+	}
+	if len(transport.requests) != 0 {
+		t.Errorf("generate made %d network requests after a cache mismatch, want 0: %v", len(transport.requests), transport.requests)
+	}
+}
+
 func TestGenerateFailsLoudlyOnUnresolvableGroup(t *testing.T) {
 	sourceDir := repoSourceDir(t)
 	cacheDir := t.TempDir()
 	// The cache holds the real reference data: "Dyson Sphere" is not in it.
 	seedReferenceData(t, cacheDir, readSource(t, sourceDir, "groups.yaml"))
+	seedPinnedReferencePack(t, cacheDir)
 
 	broken := t.TempDir()
 	for _, name := range []string{"presets.yaml", "tabs.yaml", "appearance.yaml", "columns.yaml"} {
@@ -364,7 +361,7 @@ func TestGenerateWritesAttributedProfile(t *testing.T) {
 	sourceDir := repoSourceDir(t)
 	cacheDir := t.TempDir()
 	seedReferenceData(t, cacheDir, readSource(t, sourceDir, "groups.yaml"))
-	seedReferencePack(t, cacheDir, cliReferencePack)
+	seedPinnedReferencePack(t, cacheDir)
 
 	outPath := filepath.Join(t.TempDir(), "profile.yaml")
 	cmd := exec.Command(binaryPath, "generate",

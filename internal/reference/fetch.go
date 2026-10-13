@@ -1,8 +1,10 @@
 // Package reference fetches the two pinned reference artefacts the generator
 // reads — the Z-S reference pack and the SDE Group matrix — and caches them in
-// a user cache directory. Every download is verified against a pinned SHA-256:
-// a mismatch fails generation rather than feeding the generator stale or
-// tampered data.
+// a user cache directory. The reference pack is verified against a pinned
+// SHA-256 on download and again on every cache read, so neither a bad fetch
+// nor a corrupted or tampered cache is ever fed to the generator: a mismatch
+// fails generation. The SDE cache holds the extracted groups.jsonl, whose
+// bytes the archive's pin does not describe, so that read is not re-checked.
 package reference
 
 import (
@@ -79,41 +81,40 @@ func SDEGroupsCachePath(dir string) string {
 	return filepath.Join(dir, "sde-groups-"+SDESHA256+".jsonl")
 }
 
-func (f *Fetcher) referencePackCachePath() string { return ReferencePackCachePath(f.cacheDir) }
-func (f *Fetcher) sdeGroupsCachePath() string     { return SDEGroupsCachePath(f.cacheDir) }
-
-// ReferencePack returns the Z-S reference pack's bytes.
+// ReferencePack returns the Z-S reference pack's bytes. A cached pack is
+// verified against the pin on every read, so a corrupted or tampered cache
+// fails generation rather than feeding the generator unverified data.
 func (f *Fetcher) ReferencePack(ctx context.Context) ([]byte, error) {
-	return f.cached(ctx, f.referencePackCachePath(), f.referencePackURL, f.referencePackSHA)
+	return f.cached(ctx, ReferencePackCachePath(f.cacheDir), f.referencePackURL, f.referencePackSHA, nil)
 }
 
 // SDEGroups returns the SDE's groups.jsonl bytes, extracting them from the
 // pinned archive on a cache miss.
 func (f *Fetcher) SDEGroups(ctx context.Context) ([]byte, error) {
-	if body, ok, err := readCache(f.sdeGroupsCachePath()); err != nil {
-		return nil, err
-	} else if ok {
-		return body, nil
-	}
-
-	archive, err := f.download(ctx, f.sdeURL, f.sdeSHA)
-	if err != nil {
-		return nil, err
-	}
-	groups, err := extractGroupsJSONL(archive)
-	if err != nil {
-		return nil, err
-	}
-	if err := writeCache(f.sdeGroupsCachePath(), groups); err != nil {
-		return nil, err
-	}
-	return groups, nil
+	return f.cached(ctx, SDEGroupsCachePath(f.cacheDir), f.sdeURL, f.sdeSHA, extractGroupsJSONL)
 }
 
-func (f *Fetcher) cached(ctx context.Context, cachePath, url, sha string) ([]byte, error) {
+// cached is the read-cache → download → write-cache spine both artefacts
+// share; extract is their only difference. It is nil when the cache holds the
+// pinned artefact itself (the reference pack), and a function when the cache
+// holds an artefact derived from the pinned archive (the SDE's extracted
+// groups.jsonl).
+//
+// A cache holding the pinned artefact is re-verified on every read: a mismatch
+// fails loudly rather than feeding the generator tampered data, and is never
+// silently re-downloaded over — the checksum-addressed path means a mismatch
+// there is local corruption or tampering the caller has to see. A derived
+// cache carries no pin of its own and is not checked on read; it can only have
+// been written by a verified download plus a deterministic extraction.
+func (f *Fetcher) cached(ctx context.Context, cachePath, url, sha string, extract func([]byte) ([]byte, error)) ([]byte, error) {
 	if body, ok, err := readCache(cachePath); err != nil {
 		return nil, err
 	} else if ok {
+		if extract == nil {
+			if err := verifyChecksum(cachePath, body, sha); err != nil {
+				return nil, err
+			}
+		}
 		return body, nil
 	}
 
@@ -121,10 +122,27 @@ func (f *Fetcher) cached(ctx context.Context, cachePath, url, sha string) ([]byt
 	if err != nil {
 		return nil, err
 	}
+	if extract != nil {
+		body, err = extract(body)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if err := writeCache(cachePath, body); err != nil {
 		return nil, err
 	}
 	return body, nil
+}
+
+// verifyChecksum returns an error unless body hashes to want. source names
+// where the bytes came from — a URL or a cache path — so the failure says
+// which artefact disagreed with its pin.
+func verifyChecksum(source string, body []byte, want string) error {
+	sum := sha256.Sum256(body)
+	if got := hex.EncodeToString(sum[:]); got != want {
+		return fmt.Errorf("checksum mismatch for %s: got %s, want %s", source, got, want)
+	}
+	return nil
 }
 
 // download fetches url and returns its body only if it hashes to sha.
@@ -145,9 +163,8 @@ func (f *Fetcher) download(ctx context.Context, url, sha string) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", url, err)
 	}
-	sum := sha256.Sum256(body)
-	if got := hex.EncodeToString(sum[:]); got != sha {
-		return nil, fmt.Errorf("fetch %s: checksum mismatch: got %s, want %s", url, got, sha)
+	if err := verifyChecksum(url, body, sha); err != nil {
+		return nil, fmt.Errorf("fetch: %w", err)
 	}
 	return body, nil
 }

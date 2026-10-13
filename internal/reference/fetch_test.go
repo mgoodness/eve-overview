@@ -76,8 +76,72 @@ func TestReferencePackIsFetchedOnceThenCached(t *testing.T) {
 	if got := len(transport.requests); got != 1 {
 		t.Errorf("made %d network requests, want 1 (second call must read the cache)", got)
 	}
-	if _, err := os.Stat(fetcher.referencePackCachePath()); err != nil {
+	if _, err := os.Stat(ReferencePackCachePath(fetcher.cacheDir)); err != nil {
 		t.Errorf("reference pack was not cached: %v", err)
+	}
+}
+
+// seedCache writes body to the checksum-addressed cache path, standing in for
+// a cache directory that has already been populated by a verified fetch.
+func seedCache(t *testing.T, path string, body []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create cache dir: %v", err)
+	}
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		t.Fatalf("seed cache %s: %v", path, err)
+	}
+}
+
+// TestReferencePackRejectsCorruptedCache proves a cached pack whose bytes do
+// not hash to the pin fails generation rather than feeding the generator
+// tampered data — the cache is read through the same checksum the download is.
+// It also pins the chosen behaviour on a mismatch: the corrupted entry is
+// reported and left alone, never silently re-downloaded over.
+func TestReferencePackRejectsCorruptedCache(t *testing.T) {
+	pack := []byte("presets: []\n")
+	transport := &stubTransport{bodies: map[string][]byte{
+		"https://example.test/reference-pack.yaml": pack,
+	}}
+	fetcher := testFetcher(t, transport, t.TempDir())
+	fetcher.referencePackSHA = sha256Hex(pack)
+
+	cachePath := ReferencePackCachePath(fetcher.cacheDir)
+	corrupted := []byte("presets:\n  - - tampered\n")
+	seedCache(t, cachePath, corrupted)
+
+	if _, err := fetcher.ReferencePack(context.Background()); err == nil {
+		t.Fatal("ReferencePack succeeded from a corrupted cache, want a checksum error")
+	}
+	if got := len(transport.requests); got != 0 {
+		t.Errorf("made %d network requests after a cache mismatch, want 0 (a corrupted cache is reported, not silently re-downloaded)", got)
+	}
+	if got, err := os.ReadFile(cachePath); err != nil {
+		t.Fatalf("read cache after mismatch: %v", err)
+	} else if !bytes.Equal(got, corrupted) {
+		t.Errorf("corrupted cache was rewritten: got %q, want it left as %q", got, corrupted)
+	}
+}
+
+// TestReferencePackReadsWarmValidCacheWithoutNetwork proves the offline
+// property survives verification: a cache holding the pinned bytes is trusted
+// after the checksum is re-checked, and serves the pack with no network I/O.
+func TestReferencePackReadsWarmValidCacheWithoutNetwork(t *testing.T) {
+	pack := []byte("presets:\n  - - name\n")
+	transport := &stubTransport{}
+	fetcher := testFetcher(t, transport, t.TempDir())
+	fetcher.referencePackSHA = sha256Hex(pack)
+	seedCache(t, ReferencePackCachePath(fetcher.cacheDir), pack)
+
+	got, err := fetcher.ReferencePack(context.Background())
+	if err != nil {
+		t.Fatalf("ReferencePack from a warm valid cache: %v", err)
+	}
+	if !bytes.Equal(got, pack) {
+		t.Errorf("ReferencePack = %q, want the cached %q", got, pack)
+	}
+	if len(transport.requests) != 0 {
+		t.Errorf("made %d network requests from a warm valid cache, want 0: %v", len(transport.requests), transport.requests)
 	}
 }
 
@@ -92,7 +156,7 @@ func TestReferencePackChecksumMismatchFailsAndDoesNotCache(t *testing.T) {
 	if _, err := fetcher.ReferencePack(context.Background()); err == nil {
 		t.Fatal("ReferencePack succeeded despite a checksum mismatch")
 	}
-	if _, err := os.Stat(fetcher.referencePackCachePath()); !os.IsNotExist(err) {
+	if _, err := os.Stat(ReferencePackCachePath(fetcher.cacheDir)); !os.IsNotExist(err) {
 		t.Errorf("a checksum mismatch must not populate the cache (stat err = %v)", err)
 	}
 }
@@ -116,7 +180,7 @@ func TestSDEGroupsExtractsGroupsAndCaches(t *testing.T) {
 	if !bytes.Equal(first, groups) {
 		t.Fatalf("SDEGroups = %q, want %q", first, groups)
 	}
-	cached, err := os.ReadFile(fetcher.sdeGroupsCachePath())
+	cached, err := os.ReadFile(SDEGroupsCachePath(fetcher.cacheDir))
 	if err != nil {
 		t.Fatalf("SDE Group matrix was not cached: %v", err)
 	}
@@ -148,7 +212,7 @@ func TestSDEGroupsChecksumMismatchFailsAndDoesNotCache(t *testing.T) {
 	if _, err := fetcher.SDEGroups(context.Background()); err == nil {
 		t.Fatal("SDEGroups succeeded despite a checksum mismatch")
 	}
-	if _, err := os.Stat(fetcher.sdeGroupsCachePath()); !os.IsNotExist(err) {
+	if _, err := os.Stat(SDEGroupsCachePath(fetcher.cacheDir)); !os.IsNotExist(err) {
 		t.Errorf("a checksum mismatch must not populate the cache (stat err = %v)", err)
 	}
 }
