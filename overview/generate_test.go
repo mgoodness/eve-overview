@@ -310,3 +310,57 @@ func TestGenerateRejectsUnresolvableGroup(t *testing.T) {
 		t.Errorf("error %q does not name the offending Group", err)
 	}
 }
+
+// ambiguousSDEGroups is an SDE matrix in which one Group name maps to two
+// identifiers. The real SDE has six such names; Asteroid Belt → {9, 4430} is
+// the one the authored source meets, which is why it carries the raw 9.
+const ambiguousSDEGroups = `{"_key":9,"name":{"en":"Asteroid Belt"}}
+{"_key":4430,"name":{"en":"Asteroid Belt"}}
+`
+
+// beltSource binds one Group set whose single entry is the given YAML scalar —
+// a Group name or a raw identifier — from one Preset and one Tab.
+func beltSource(entry string) overview.Source {
+	return overview.Source{
+		Groups: []byte("groupSets:\n  belts:\n    - " + entry + "\n"),
+		Presets: []byte(`
+presets:
+  - name: "<color=0xFFFF6666>Belts</color>"
+    groups:
+      - belts
+`),
+		Tabs: []byte(`
+tabs:
+  - name: "<b> Belts </b>"
+    list: Belts
+    bracket: Belts
+`),
+	}
+}
+
+// TestGenerateRejectsAmbiguousGroupName is the negative half of the source's
+// Group resolution: a name the SDE maps to more than one Group must fail
+// loudly and name the Group, never pick one silently. A wrong identifier here
+// is invisible until a fight, when the entity simply never appears.
+func TestGenerateRejectsAmbiguousGroupName(t *testing.T) {
+	_, err := overview.Generate(beltSource("Asteroid Belt"), overview.Options{SDEGroups: []byte(ambiguousSDEGroups)})
+	if err == nil {
+		t.Fatal("Generate succeeded with a Group name the SDE maps to two Groups, want error")
+	}
+	if !strings.Contains(err.Error(), "Asteroid Belt") {
+		t.Errorf("error %q does not name the ambiguous Group", err)
+	}
+}
+
+// TestRawGroupIdentifierEscapesAmbiguousName proves the escape hatch the
+// ambiguity forces: a raw identifier in the source is used verbatim rather
+// than resolved, so the source can express Asteroid Belt as 9 when the name is
+// ambiguous. This is the stated reason the escape hatch exists.
+func TestRawGroupIdentifierEscapesAmbiguousName(t *testing.T) {
+	doc := decodeGeneric(t, generateWith(t, beltSource("9"), overview.Options{SDEGroups: []byte(ambiguousSDEGroups)}))
+	preset := doc["presets"].([]any)[0].([]any)
+	groups := intList(t, lookup(t, preset[1].([]any), "groups"))
+	if !equalInts(groups, []int{9}) {
+		t.Errorf("groups = %v, want the raw identifier [9]", groups)
+	}
+}
