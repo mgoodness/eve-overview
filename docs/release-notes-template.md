@@ -1,24 +1,18 @@
 <!--
-Release notes template for eve-overview.
-
-The release workflow copies this file to release-notes.md and appends the
-generated SHA256SUMS, so the published release carries the profile's own
-checksum as well as the attribution and the reproducibility pins below. Nothing
-in this file is release-specific; the tag supplies the version.
+Appended to release-please's generated notes by .github/workflows/release.yml,
+followed by the generated SHA256SUMS block. Nothing here is release-specific;
+the tag supplies the version.
 -->
-
-# eve-overview
-
-The generated wormhole-hunter overview profile, published as an importable EVE
-Online overview `.yaml`.
-
-**Import steps:** [docs/install.md](docs/install.md) — manual and in-client;
-there is no installer.
 
 ## Assets
 
 - `overview.yaml` — the generated profile, with its attribution header.
 - `SHA256SUMS` — its SHA-256, for verifying the download.
+
+## Import
+
+Manual and in-client; see [docs/install.md](docs/install.md). There is no
+installer.
 
 ## Attribution and licence
 

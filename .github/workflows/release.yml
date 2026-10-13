@@ -1,26 +1,28 @@
 name: Release
 
-# A version tag is the release trigger. Pushing `v1.2.3` generates the profile
-# from that exact source tree and publishes it as a release asset, so a profile
-# can be pinned by tag. Nothing else should create tags; a human does, as the
-# last step of cutting a release — see docs/install.md.
+# release-please creates the tag and the GitHub Release when its release PR
+# merges. This workflow then attaches the generated profile to that release and
+# appends the attribution and checksums to its notes.
+#
+# It does not create the release or the tag — release-please owns those — so the
+# default GITHUB_TOKEN is enough here. The App token that avoids the loop-trap
+# lives in release-please.yml.
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [published]
 
-# Creating the release needs a write token. GITHUB_TOKEN is enough for a
-# tag-triggered release; no secret or GitHub App is involved.
+# Uploading assets and editing the notes needs contents: write.
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: release
+  attach-profile:
+    name: attach-profile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.release.tag_name }}
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -28,21 +30,31 @@ jobs:
           cache: false
       # The generator fetches the pinned reference pack and SDE and verifies
       # both against their SHA-256, so a release can only be built from the
-      # data the pins name. The pins it used ride in the profile's own header.
+      # data the pins name. The pins it used ride in the profile's own header,
+      # and are repeated in the notes below.
       - name: Generate profile
         run: go run ./cmd/eve-overview generate -out overview.yaml
       - name: Checksum the profile
         run: sha256sum overview.yaml > SHA256SUMS
-      # The published notes are the checked-in template plus the profile's own
-      # checksum, so the release carries the Z-S attribution, the GPLv3 notice,
-      # the reference pins and the hash of the asset a consumer downloads.
-      - name: Compose release notes
-        run: |
-          cp docs/release-notes-template.md release-notes.md
-          printf '\n```\n' >> release-notes.md
-          cat SHA256SUMS >> release-notes.md
-          printf '```\n' >> release-notes.md
-      - name: Publish release
+      - name: Attach the profile and its checksums
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" overview.yaml SHA256SUMS --title "${GITHUB_REF_NAME}" --notes-file release-notes.md --verify-tag
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" overview.yaml SHA256SUMS --clobber
+      # release-please wrote the changelog; append the attribution, the
+      # reproducibility pins and the checksum of the asset a consumer downloads.
+      - name: Append attribution and checksums to the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release view "$TAG" --json body --jq .body > generated-notes.md
+          {
+            cat generated-notes.md
+            printf '\n---\n\n'
+            cat docs/release-notes-template.md
+            printf '\n```\n'
+            cat SHA256SUMS
+            printf '```\n'
+          } > release-notes.md
+          gh release edit "$TAG" --notes-file release-notes.md
