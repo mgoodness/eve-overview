@@ -45,6 +45,7 @@ func (r *groupRef) UnmarshalYAML(node *yaml.Node) error {
 
 type presetSpec struct {
 	Name              string   `yaml:"name"`
+	CopyOf            string   `yaml:"copyOf"`
 	Groups            []string `yaml:"groups"`
 	FilteredStates    []int    `yaml:"filteredStates"`
 	AlwaysShownStates []int    `yaml:"alwaysShownStates"`

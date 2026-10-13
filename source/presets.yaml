@@ -6,14 +6,43 @@
 #                     hidden.
 #   alwaysShownStates the State override. An entity carrying an always-shown
 #                     State survives the veto.
+#   copyOf            a loaded Z-S Preset, by markup-free name, whose Group
+#                     whitelist and State lists this Preset starts from.
 #
 # Preset names carry the client's colour markup and are emitted verbatim; a
 # Tab references a Preset by its markup-free name.
-#
-# Ticket #5 authors the real roster; #2 ships the minimum walking skeleton.
 presets:
+  # The mixed working Tab: hostile ships, warp-to celestials and decloak
+  # hazards at once, so the D-scan cadence never breaks by flipping Tabs. Every
+  # Friendly State is vetoed so no Corp, alliance or Fleet mate can be
+  # misclicked, and the war target is rescued from that veto.
   - name: "<color=0xFFFF6666>Engage</color>"
     groups:
-      - celestials
+      - player-ships
+      - warp-celestials
+      - large-collidables
+      - mobile-hazards
     filteredStates: [11, 12, 14, 15, 16, 45, 49]
     alwaysShownStates: [13]
+
+  # The wormhole-only Tab. States are empty because the scanner ignores them.
+  - name: "<color=0xFFFF6666>Holes</color>"
+    groups:
+      - wormholes
+    filteredStates: []
+    alwaysShownStates: []
+
+  # The occupancy Tab. States are empty because the scanner ignores them.
+  - name: "<color=0xFFFF6666>Occupancy</color>"
+    groups:
+      - occupancy
+    filteredStates: []
+    alwaysShownStates: []
+
+  # The alt's exploration Preset: the loaded Z-S "✜ PvX: Exploring" untouched
+  # except for the four decloak hazards and the escape celestials.
+  - name: "<color=0xFFFF6666>✜ PvX: Exploring (+Hazards)</color>"
+    copyOf: "✜ PvX: Exploring"
+    groups:
+      - large-collidables
+      - exploring-escape

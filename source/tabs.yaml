@@ -2,9 +2,37 @@
 # Preset independently, by markup-free Preset name. `name` is the Tab's own
 # label drawn in the overview window.
 #
-# Ticket #5 fills the ten-Tab roster; #2 ships one Tab for the walking
-# skeleton.
+# The hunter's pressure set leads. Every Tab uses the combat/targets/friendly
+# Bracket Preset except the podsaver Tab, which uses the warpout Bracket Preset
+# so a safe is easy to find while leaving.
 tabs:
+  - name: "<b> Travel </b>"
+    list: "✈ Travel (-Ship +Sta)"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
   - name: "<b> Engage </b>"
-    list: Engage
-    bracket: Engage
+    list: "Engage"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+  - name: "<b> Exit! </b>"
+    list: "➲ Extra: Podsaver (!)"
+    bracket: "⌘ Brackets: Warpout (!)"
+  - name: "<b> Holes </b>"
+    list: "Holes"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+  - name: "<b> Fleet </b>"
+    list: "✪ = Friendly: Fleet"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+  - name: "<b> PvE </b>"
+    list: "✜ PvX: Mission Filter (+LCO +LCS)"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+  - name: "<b> PI </b>"
+    list: "✜ PvX: PI"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+  - name: "<b> Exploring </b>"
+    list: "✜ PvX: Exploring (+Hazards)"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+  - name: "<b> Loot </b>"
+    list: "✜ PvX: Salvage/Loot"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+  - name: "<b> Occupancy </b>"
+    list: "Occupancy"
+    bracket: "⌘ Brackets: Combat/Targets/Friendly (+Dro)"

@@ -110,6 +110,24 @@ func buildPresets(specs []presetSpec, sets map[string][]int, lib *library) ([]pa
 		names[key] = spec.Name
 
 		groups := []int{}
+		filtered := spec.FilteredStates
+		always := spec.AlwaysShownStates
+		if spec.CopyOf != "" {
+			base, ok := lib.body(spec.CopyOf)
+			if !ok {
+				return nil, nil, fmt.Errorf("preset %q copies unknown library preset %q", spec.Name, spec.CopyOf)
+			}
+			// The base is a loaded Z-S Preset: its Groups ride through as raw
+			// identifiers and its State lists are inherited, so a copy is the
+			// exploration Preset plus hazards rather than a rebuild.
+			groups = append(groups, presetGroups(base)...)
+			if filtered == nil {
+				filtered = presetStates(base, "filteredStates")
+			}
+			if always == nil {
+				always = presetStates(base, "alwaysShownStates")
+			}
+		}
 		for _, setName := range spec.Groups {
 			set, ok := sets[setName]
 			if !ok {
@@ -118,12 +136,62 @@ func buildPresets(specs []presetSpec, sets map[string][]int, lib *library) ([]pa
 			groups = append(groups, set...)
 		}
 		presets = append(presets, pair{spec.Name, []pair{
-			{"alwaysShownStates", spec.AlwaysShownStates},
-			{"filteredStates", spec.FilteredStates},
+			{"alwaysShownStates", always},
+			{"filteredStates", filtered},
 			{"groups", groups},
 		}})
 	}
 	return presets, names, nil
+}
+
+// presetGroups reads a loaded Preset body's Group identifier list. Its
+// identifiers are returned exactly as the library carried them.
+func presetGroups(body []any) []int {
+	groups, ok := presetAttribute(body, "groups")
+	if !ok {
+		return nil
+	}
+	return asIntList(groups)
+}
+
+// presetStates reads one of a loaded Preset body's State lists.
+func presetStates(body []any, key string) []int {
+	value, ok := presetAttribute(body, key)
+	if !ok {
+		return nil
+	}
+	return asIntList(value)
+}
+
+func presetAttribute(body []any, key string) (any, bool) {
+	for _, raw := range body {
+		entry, ok := raw.([]any)
+		if !ok || len(entry) != 2 {
+			continue
+		}
+		if entry[0] == key {
+			return entry[1], true
+		}
+	}
+	return nil, false
+}
+
+// asIntList converts a decoded YAML sequence to the integer list the profile
+// document carries, dropping anything that is not an integer.
+func asIntList(value any) []int {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]int, 0, len(items))
+	for _, item := range items {
+		n, ok := item.(int)
+		if !ok {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 // buildTabs emits one tabSetup slot per authored tab. The list preset is

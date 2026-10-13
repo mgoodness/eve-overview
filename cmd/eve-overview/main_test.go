@@ -97,7 +97,12 @@ func readSource(t *testing.T, dir, name string) string {
 
 // cliReferencePack is a minimal stand-in for the cached Z-S reference pack.
 // The CLI seeds it into the cache so tests never reach the network, and the
-// leading Preset proves the pack rides into the emitted profile.
+// Presets mirror the ones the real roster binds: the leading Collidables Preset
+// proves the pack rides into the emitted profile, "✜ PvX: Exploring" is the
+// authored exploration Preset's copyOf base, and the rest satisfy the Tabs'
+// list and bracket bindings. A harness that seeded only some of them would make
+// the CLI smoke tests fail on a missing binding rather than on the behaviour
+// under test.
 const cliReferencePack = `presets:
   - - "<color=0xFFFF6666>✜ = CovOps: Collidables</color>"
     - - - alwaysShownStates
@@ -107,6 +112,69 @@ const cliReferencePack = `presets:
       - - groups
         - - 6
           - 1211
+  - - "<color=0xFFFF6666>✜ PvX: Exploring</color>"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - - 11
+      - - groups
+        - - 7
+  - - "<color=0xFFFFFFFF>✈ Travel (-Ship +Sta)</color>"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - - 11
+      - - groups
+        - - 10
+  - - "<color=0xFF66FF66>➲ Extra: Podsaver (!)</color>"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - []
+      - - groups
+        - - 29
+  - - "<color=0xFF66CCFF>✪ = Friendly: Fleet</color>"
+    - - - alwaysShownStates
+        - - 11
+      - - filteredStates
+        - - 9
+      - - groups
+        - - 25
+  - - "<color=0xFFFF6666>✜ PvX: Mission Filter (+LCO +LCS)</color>"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - - 11
+      - - groups
+        - - 226
+  - - "<color=0xFFFF6666>✜ PvX: PI</color>"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - - 11
+      - - groups
+        - - 8
+  - - "<color=0xFFFF6666>✜ PvX: Salvage/Loot</color>"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - - 11
+      - - groups
+        - - 186
+  - - "⌘ Brackets: Combat/Targets/Friendly (+Dro)"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - []
+      - - groups
+        - - 25
+  - - "⌘ Brackets: Warpout (!)"
+    - - - alwaysShownStates
+        - []
+      - - filteredStates
+        - []
+      - - groups
+        - - 29
 `
 
 // seedReferencePack writes a reference pack into the checksum-addressed cache

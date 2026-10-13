@@ -4,12 +4,106 @@
 # generation time, or a raw integer used verbatim as an escape hatch. The
 # escape hatch is required where a name is ambiguous in the SDE: "Asteroid
 # Belt" is both group 9 (celestial) and 4430 (moon ore), and presets mean 9.
-#
-# Ticket #5 fills this file out; #2 ships the minimum the walking skeleton
-# needs.
 groupSets:
-  celestials:
+  # Every Group a player flies, matching Z-S's own "✜ -- Ships only" list. The
+  # mixed working Tab leads with these so the shooting list stays readable.
+  player-ships:
+    - Frigate
+    - Cruiser
+    - Battleship
+    - Hauler
+    - Capsule
+    - Titan
+    - Shuttle
+    - Bomb
+    - Corvette
+    - Assault Frigate
+    - Heavy Assault Cruiser
+    - Deep Space Transport
+    - Elite Battleship
+    - Combat Battlecruiser
+    - Destroyer
+    - Mining Barge
+    - Dreadnought
+    - Freighter
+    - Command Ship
+    - Interdictor
+    - Exhumer
+    - Carrier
+    - Supercarrier
+    - Covert Ops
+    - Interceptor
+    - Logistics
+    - Force Recon Ship
+    - Stealth Bomber
+    - Bomb ECM
+    - Bomb Energy
+    - Capital Industrial Ship
+    - Electronic Attack Ship
+    - Heavy Interdiction Cruiser
+    - Black Ops
+    - Marauder
+    - Jump Freighter
+    - Combat Recon Ship
+    - Industrial Command Ship
+    - Strategic Cruiser
+    - Prototype Exploration Ship
+    - Attack Battlecruiser
+    - Blockade Runner
+    - Expedition Frigate
+    - Tactical Destroyer
+    - Logistics Frigate
+    - Command Destroyer
+    - Force Auxiliary
+    - Guided Bomb
+    - Super Weapon Beacon
+    - Flag Cruiser
+    - Citizen Ships
+    - Lancer Dreadnought
+    - Expedition Command Ship
+    - Special Edition Yachts
+    - Command Carrier
+
+  # The warp-to celestials: everything a hunter can click to leave a grid,
+  # plus the wormhole itself. 9 is the raw identifier for "Asteroid Belt":
+  # the name is ambiguous in the SDE (group 9 is the celestial belt, group
+  # 4430 is moon ore), and presets mean the celestial, so the name cannot be
+  # written here.
+  warp-celestials:
     - Sun
     - Planet
     - Moon
     - 9 # Asteroid Belt
+    - Stargate
+    - Wormhole
+
+  # The four decloak hazards a hunter meets on grid: being within 2 km of any
+  # collidable drops a cloak, so the structures and fields go on the Tabs the
+  # hunter actually flies from.
+  large-collidables:
+    - Large Collidable Object
+    - Large Collidable Structure
+    - Control Tower
+    - Force Field
+
+  # Player deployables that also decloak and that signal occupancy.
+  mobile-hazards:
+    - Mobile Warp Disruptor
+    - Mobile Depot
+
+  # The escape warps for an alt in a site: a wormhole exit is often not on the
+  # exploration Preset, so Planet, Moon and Asteroid Belt come along.
+  exploring-escape:
+    - Planet
+    - Moon
+    - 9 # Asteroid Belt; ambiguous by name, see warp-celestials
+
+  # The wormhole-only Tab: watch a hole for transits and bookmark it on grid.
+  wormholes:
+    - Wormhole
+
+  # Moons and warp disruption fields: whether anyone is home, without
+  # cluttering the combat Tab with that clutter.
+  occupancy:
+    - Moon
+    - Mobile Warp Disruptor
