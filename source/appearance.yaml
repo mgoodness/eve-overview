@@ -1,5 +1,7 @@
-# The appearance layer: Colortags (flag), Backgrounds, Blinks, colortag names
-# and bracket ship labels.
+# The appearance layer: Colortags, Backgrounds, Blinks, colortag names and
+# bracket ship labels. The wire keys keep the client's spelling — flagOrder,
+# flagStates and flag_<id> are its names for the Colortag layer — while the
+# generator's own vocabulary calls them Colortags.
 #
 # The order lists are priority orders — the client colours an entity with the
 # FIRST State it carries that appears in the order AND in the matching
@@ -11,7 +13,9 @@
 # reserved identifier (20) and agent-interactable (21) draw none, because in
 # J-space every stranger carries one of them and a highlight for them is noise
 # rather than signal. The militia States (44/45) keep exactly the pack's
-# treatment. Blinks reduce to the three dangerous States: war target (13),
+# Colortag, Background and colour treatment, so the only lowsec change is that
+# State 44 loses its Blink — see docs/adr/0003-militia-blink-reduction.md.
+# Blinks reduce to the three dangerous States: war target (13),
 # criminal (51) and low security status (9).
 flagOrder: [13, 44, 52, 11, 12, 14, 15, 16, 45, 9, 51, 68, 50, 53, 19, 18, 49, 10, 17, 48, 21, 20, 66]
 flagStates: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 44, 45, 48, 49, 50, 51, 52, 53, 68]
