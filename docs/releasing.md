@@ -8,8 +8,8 @@ Two workflows do the work:
 
 | Workflow | Trigger | Job |
 | --- | --- | --- |
-| `release-please.yml` | push to `main` | opens/updates the release PR; on merge, tags and releases |
-| `release.yml` | a release is published | generates the profile, attaches `overview.yaml` + `SHA256SUMS`, appends attribution and pins to the notes |
+| `release-please.yml` | push to `main` | opens/updates the release PR; on merge, creates the `vX.Y.Z` tag and a **draft** release |
+| `release.yml` | the `vX.Y.Z` tag is pushed | generates the profile, attaches `overview.yaml` + `SHA256SUMS` to the draft, appends attribution and pins to the notes, then publishes |
 
 So cutting a release is: **merge the release-please PR.** Nothing is tagged by
 hand, and no tag is pushed from a laptop.
@@ -47,11 +47,19 @@ The tool opens the App's install page, then sets both values. It is idempotent.
 A component in the tag would still work, but the shorter form is what the
 release workflow and `docs/install.md` assume.
 
-## Immutable releases
+## Draft-first and immutable releases
 
-If the repository ever enables immutable releases, switch
-`release-please-config.json` to hold the release as a draft
-(`"draft": true, "force-tag-creation": true`) and have `release.yml` attach the
-assets and publish it — GitHub blocks adding assets to an already-published
-immutable release, and a draft defers tag creation unless force-tag-creation is
-set.
+`release-please-config.json` sets `"draft": true` and
+`"force-tag-creation": true`. release-please creates the tag and a draft
+release; the tag (App-pushed, so the trigger fires) starts `release.yml`, which
+attaches every asset and only then publishes the release.
+
+Publishing last is required because **immutable releases are enabled**
+(`gh api -X PUT repos/mgoodness/eve-overview/immutable-releases`). Once
+published, a release's tag is locked to its commit and its assets can no longer
+be added or changed, and GitHub mints a release attestation for it. Attaching
+assets after publish — the default release-please flow — would be rejected.
+
+`force-tag-creation` matters as much as `draft`: without it GitHub defers tag
+creation for a draft release until it is published, so the tag-triggered
+workflow would never fire, and the draft would sit unpublished forever.

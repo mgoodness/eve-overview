@@ -201,28 +201,48 @@ func TestReleasePleaseConfigKeepsTheTagShape(t *testing.T) {
 	}
 }
 
-// TestReleaseWorkflowTriggersOnPublishedReleases pins the downstream trigger:
-// release-please publishes the release, and this workflow reacts to it rather
-// than to a hand-pushed tag.
-func TestReleaseWorkflowTriggersOnPublishedReleases(t *testing.T) {
+// TestReleaseWorkflowTriggersOnVersionTags pins the downstream trigger: the
+// tag release-please pushes (with force-tag-creation) is what starts the asset
+// workflow, and that push is App-authored so the trigger actually fires.
+func TestReleaseWorkflowTriggersOnVersionTags(t *testing.T) {
 	on := nodeValue(loadWorkflowAt(t, releaseWorkflowPath), "on")
 	if on == nil {
 		t.Fatal(`release workflow has no "on" trigger block`)
 	}
-	release := nodeValue(on, "release")
-	if release == nil {
-		t.Fatal("release workflow does not run on release events")
+	push := nodeValue(on, "push")
+	if push == nil {
+		t.Fatal("release workflow does not run on push")
 	}
-	types := nodeValue(release, "types")
-	if types == nil {
-		t.Fatal("release workflow's release trigger does not filter types")
+	tags := nodeValue(push, "tags")
+	if tags == nil {
+		t.Fatal("release workflow's push trigger does not filter tags")
 	}
-	for _, action := range types.Content {
-		if action.Value == "published" {
+	for _, tag := range tags.Content {
+		if strings.Contains(tag.Value, "v*") {
 			return
 		}
 	}
-	t.Errorf("release workflow does not run on published releases")
+	t.Errorf("release workflow's tag filter does not include a v* pattern")
+}
+
+// TestReleasePleaseConfigHoldsTheReleaseAsADraft is the immutable-releases
+// guard: the release must stay a draft until the asset workflow has attached
+// the profile, and force-tag-creation must exist so that workflow is triggered
+// despite the draft.
+func TestReleasePleaseConfigHoldsTheReleaseAsADraft(t *testing.T) {
+	var config struct {
+		Draft            *bool `json:"draft"`
+		ForceTagCreation *bool `json:"force-tag-creation"`
+	}
+	if err := json.Unmarshal([]byte(readArtefact(t, releasePleaseConfigPath)), &config); err != nil {
+		t.Fatalf("parse %s: %v", releasePleaseConfigPath, err)
+	}
+	if config.Draft == nil || !*config.Draft {
+		t.Errorf("%s must set draft to true so assets are attached before publish", releasePleaseConfigPath)
+	}
+	if config.ForceTagCreation == nil || !*config.ForceTagCreation {
+		t.Errorf("%s must set force-tag-creation to true, or the draft defers tag creation and the asset workflow never fires", releasePleaseConfigPath)
+	}
 }
 
 // TestReleaseWorkflowPublishesTheProfileAndItsChecksums is the acceptance guard
@@ -237,7 +257,7 @@ func TestReleaseWorkflowPublishesTheProfileAndItsChecksums(t *testing.T) {
 	}
 	commands := runCommands(t, job)
 
-	var generated, checksummed, uploaded, attributed bool
+	var generated, checksummed, uploaded, attributed, published bool
 	for _, command := range commands {
 		switch {
 		case strings.Contains(command, "generate") && strings.Contains(command, "overview.yaml"):
@@ -253,6 +273,8 @@ func TestReleaseWorkflowPublishesTheProfileAndItsChecksums(t *testing.T) {
 			}
 		case strings.Contains(command, "gh release edit") && strings.Contains(command, releaseNotesRepoPath):
 			attributed = true
+		case strings.Contains(command, "gh release edit") && strings.Contains(command, "--draft=false"):
+			published = true
 		}
 	}
 	if !generated {
@@ -266,6 +288,9 @@ func TestReleaseWorkflowPublishesTheProfileAndItsChecksums(t *testing.T) {
 	}
 	if !attributed {
 		t.Errorf("no step edits the notes from %s; commands: %q", releaseNotesRepoPath, commands)
+	}
+	if !published {
+		t.Errorf("no step publishes the draft release with --draft=false; commands: %q", commands)
 	}
 }
 
