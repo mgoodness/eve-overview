@@ -66,13 +66,15 @@ body{background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-R
 .deck{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:6;display:flex;gap:6px}
 .deck .win{position:relative}
 .watermark{position:absolute;top:8px;right:10px;color:#3a4452;font-size:10px;letter-spacing:2px;text-transform:uppercase;pointer-events:none}
-.tip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:380px;text-align:center;color:var(--muted);font-size:11px;
-  background:rgba(10,14,20,.86);border:1px solid var(--line);border-radius:6px;padding:8px 14px;pointer-events:none;z-index:4}
+.proto{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.tip{position:static;max-width:380px;text-align:center;color:var(--muted);font-size:11px;
+  background:rgba(10,14,20,.86);border:1px solid var(--line);border-radius:6px;padding:8px 14px;pointer-events:none}
 .tip b{color:var(--text)}
 .tip .why{color:var(--accent)}
-/* floating prototype switcher — deliberately not part of the design */
-.switcher{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;
-  background:#f4f7fb;color:#0b0e13;border-radius:999px;padding:6px 8px;box-shadow:0 8px 30px rgba(0,0,0,.55);z-index:50;font-weight:600}
+/* floating prototype chrome — deliberately not part of the design; stacked
+   directly under the variant info */
+.switcher{position:static;display:flex;align-items:center;gap:12px;pointer-events:auto;
+  background:#f4f7fb;color:#0b0e13;border-radius:999px;padding:6px 8px;box-shadow:0 8px 30px rgba(0,0,0,.55);font-weight:600}
 .switcher button{border:0;background:#0b0e13;color:#f4f7fb;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px}
 .switcher .lbl{min-width:230px;text-align:center;font-size:12px}
 .switcher .k{color:#5a6472;font-weight:500}
@@ -80,14 +82,16 @@ body{background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-R
 </head>
 <body>
 <div id="client" class="client"></div>
-<div id="tip" class="tip"></div>
-<div class="watermark">prototype · throwaway</div>
-<div class="switcher" id="switcher">
-  <button id="prev" aria-label="Previous variant">←</button>
-  <span class="lbl" id="lbl"></span>
-  <button id="next" aria-label="Next variant">→</button>
-  <span class="k">?variant=</span>
+<div class="proto">
+  <div id="tip" class="tip"></div>
+  <div class="switcher" id="switcher">
+    <button id="prev" aria-label="Previous variant">←</button>
+    <span class="lbl" id="lbl"></span>
+    <button id="next" aria-label="Next variant">→</button>
+    <span class="k">?variant=</span>
+  </div>
 </div>
+<div class="watermark">prototype · throwaway</div>
 <script>
 /* ---------- mock data (a J-space hunter, on a hole grid) ---------- */
 const SHIPS = [
