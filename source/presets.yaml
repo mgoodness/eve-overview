@@ -1,0 +1,19 @@
+# Authored Presets. A Preset has three parts, mirroring the client:
+#
+#   groups            the Group whitelist. Gates first and absolutely: no State
+#                     can bring back an entity whose Group is not here.
+#   filteredStates    the State veto. An entity carrying a vetoed State is
+#                     hidden.
+#   alwaysShownStates the State override. An entity carrying an always-shown
+#                     State survives the veto.
+#
+# Preset names carry the client's colour markup and are emitted verbatim; a
+# Tab references a Preset by its markup-free name.
+#
+# Ticket #5 authors the real roster; #2 ships the minimum walking skeleton.
+presets:
+  - name: "<color=0xFFFF6666>Engage</color>"
+    groups:
+      - celestials
+    filteredStates: [11, 12, 14, 15, 16, 45, 49]
+    alwaysShownStates: [13]

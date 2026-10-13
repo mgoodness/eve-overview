@@ -1,0 +1,15 @@
+# Named Group sets. A preset's whitelist is built from these.
+#
+# Each entry is a Group *name*, resolved to an SDE Group identifier at
+# generation time, or a raw integer used verbatim as an escape hatch. The
+# escape hatch is required where a name is ambiguous in the SDE: "Asteroid
+# Belt" is both group 9 (celestial) and 4430 (moon ore), and presets mean 9.
+#
+# Ticket #5 fills this file out; #2 ships the minimum the walking skeleton
+# needs.
+groupSets:
+  celestials:
+    - Sun
+    - Planet
+    - Moon
+    - 9 # Asteroid Belt

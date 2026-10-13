@@ -1,0 +1,10 @@
+# The Tab roster, in slot order. Each Tab binds a list Preset and a Bracket
+# Preset independently, by markup-free Preset name. `name` is the Tab's own
+# label drawn in the overview window.
+#
+# Ticket #5 fills the ten-Tab roster; #2 ships one Tab for the walking
+# skeleton.
+tabs:
+  - name: "<b> Engage </b>"
+    list: Engage
+    bracket: Engage

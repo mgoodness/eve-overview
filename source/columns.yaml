@@ -1,0 +1,33 @@
+# The profile-wide column configuration.
+#
+#   columnOrder     the master order of every column the client knows, which
+#                   per-Tab orders are drawn from.
+#   overviewColumns the subset shown on every Tab that does not override it.
+#
+# Column tokens are the client's exact uppercase strings. Ticket #6 adds
+# per-Tab overrides; #2 ships the Z-S v10.06.09 values unchanged.
+columnOrder:
+  - ICON
+  - TAG
+  - DISTANCE
+  - NAME
+  - TYPE
+  - ALLIANCE
+  - CORPORATION
+  - FACTION
+  - MILITIA
+  - SIZE
+  - VELOCITY
+  - RADIALVELOCITY
+  - TRANSVERSALVELOCITY
+  - ANGULARVELOCITY
+overviewColumns:
+  - ALLIANCE
+  - ANGULARVELOCITY
+  - CORPORATION
+  - DISTANCE
+  - ICON
+  - NAME
+  - TRANSVERSALVELOCITY
+  - TYPE
+  - VELOCITY
