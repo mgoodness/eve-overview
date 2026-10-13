@@ -354,3 +354,99 @@ func TestGenerateFailsLoudlyOnUnresolvableGroup(t *testing.T) {
 		t.Errorf("stderr does not name the offending Group: %q", stderr.String())
 	}
 }
+
+// TestGenerateWritesAttributedProfile proves the file the CLI writes leads with
+// the attribution and reproducibility header, and that the document still
+// decodes. The emitted profile is a derivative of the GPLv3 Z-S pack, so the
+// attribution has to travel with the artefact itself — not only live in the
+// repository — and it must not stop the profile being a profile.
+func TestGenerateWritesAttributedProfile(t *testing.T) {
+	sourceDir := repoSourceDir(t)
+	cacheDir := t.TempDir()
+	seedReferenceData(t, cacheDir, readSource(t, sourceDir, "groups.yaml"))
+	seedReferencePack(t, cacheDir, cliReferencePack)
+
+	outPath := filepath.Join(t.TempDir(), "profile.yaml")
+	cmd := exec.Command(binaryPath, "generate",
+		"-source", sourceDir,
+		"-cache", cacheDir,
+		"-out", outPath,
+	)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("generate failed: %v\nstderr: %s", err, stderr.String())
+	}
+
+	body, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("profile was not written: %v", err)
+	}
+
+	header := attributionHeader()
+	if !bytes.HasPrefix(body, []byte(header)) {
+		t.Fatalf("written profile does not start with the attribution header:\n%s", body)
+	}
+
+	// The header comes from the CLI, not from overview.Generate: strip it and
+	// the seam's bytes must be the document alone, leading with its first
+	// profile key. A second header, or a document that begins with a comment,
+	// would mean attribution had leaked into the seam.
+	profile := bytes.TrimPrefix(body, []byte(header))
+	if !bytes.HasPrefix(profile, []byte("backgroundOrder:")) {
+		t.Errorf("the bytes after the header are not the profile document itself: %q", firstLine(profile))
+	}
+
+	// The header must actually say who and what: the pack, its two
+	// maintainers, its lineage, its licence, the SDE's terms, and the pins
+	// that make the artefact reproducible from the repository plus the
+	// cached reference data.
+	for _, want := range []string{
+		"https://github.com/mgoodness/eve-overview",
+		"Z-S Overview",
+		"Zirio",
+		"Deuce Syundai",
+		"SaraShawa",
+		"Sarah Schneider",
+		"GNU GPLv3",
+		"https://github.com/Arziel1992/Z-S-Overview-Pack",
+		"Fenris",
+		"docs/install.md",
+		reference.ReferencePackURL,
+		reference.ReferencePackSHA256,
+		reference.SDEURL,
+		reference.SDESHA256,
+		reference.SDEBuild,
+	} {
+		if !strings.Contains(header, want) {
+			t.Errorf("attribution header does not mention %q", want)
+		}
+	}
+
+	// The header is a YAML comment block, so the document it leads decodes to
+	// a valid profile unchanged. A comment that broke decoding would make the
+	// attribution cost the artefact.
+	var doc map[string]any
+	if err := yaml.Unmarshal(body, &doc); err != nil {
+		t.Fatalf("attributed profile is not valid YAML: %v", err)
+	}
+	if _, ok := doc["presets"]; !ok {
+		t.Errorf("attributed profile does not decode to a profile document; got keys %v", keys(doc))
+	}
+}
+
+// keys returns a map's keys, for readable failure output.
+func keys(m map[string]any) []string {
+	out := make([]string, 0, len(m))
+	for key := range m {
+		out = append(out, key)
+	}
+	return out
+}
+
+// firstLine returns body's first line, for a failure message about the bytes
+// that did not look like a profile document.
+func firstLine(body []byte) string {
+	line, _, _ := bytes.Cut(body, []byte("\n"))
+	return string(line)
+}

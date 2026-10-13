@@ -30,6 +30,12 @@ const (
 	SDEURL = "https://developers.eveonline.com/static-data/tranquility/eve-online-static-data-3607705-jsonl.zip"
 
 	SDESHA256 = "905a199f0114be2e251f98d17ff0adc36bbb38a94febc828276285bf6d2e6315"
+
+	// SDEBuild is the Static Data Export build the pinned archive was cut from,
+	// the build CCP names in the archive's own URL. It is recorded beside the
+	// URL and checksum so a release consumer can identify the data the profile
+	// was generated against even if the URL moves.
+	SDEBuild = "3607705"
 )
 
 // Fetcher fetches pinned artefacts and caches them under a directory. The

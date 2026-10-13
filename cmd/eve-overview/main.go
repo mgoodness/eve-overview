@@ -95,7 +95,12 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	if err := os.WriteFile(*outPath, profile, 0o644); err != nil {
+	// The written file leads with the attribution and reproducibility
+	// header; the profile itself is the comment block's tail. Leading with
+	// the comments keeps Generate's output a pure profile while the artefact
+	// on disk carries its own provenance.
+	document := append([]byte(attributionHeader()), profile...)
+	if err := os.WriteFile(*outPath, document, 0o644); err != nil {
 		fmt.Fprintf(stderr, "write %s: %v\n", *outPath, err)
 		return 1
 	}
