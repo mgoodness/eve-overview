@@ -1,0 +1,33 @@
+name: Dependabot auto-merge
+
+# pull_request_target is the one place this trigger is safe: it is what gives
+# the job the write-scoped token Dependabot's own pull_request event never gets,
+# and this workflow never checks out the PR's code and never interpolates a
+# PR-derived value into a run: script — the PR URL flows through env:.
+on: pull_request_target # zizmor: ignore[dangerous-triggers] no checkout of PR code; PR-derived values only flow through env:, never interpolated into run: scripts
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: auto-merge
+    runs-on: ubuntu-latest
+    # github.actor is spoofable; the PR author is not.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      # Auto-merge reaches main only through the ruleset's required `test`
+      # check: this step requests it, GitHub waits for the check to pass.
+      # A major bump is a real compatibility question, so it is left for a human.
+      - name: Enable auto-merge for minor and patch updates
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --auto --squash "$PR_URL"
