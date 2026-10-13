@@ -23,11 +23,15 @@ const usage = `eve-overview generates an EVE Online overview profile.
 
 Usage:
   eve-overview generate [flags]
+  eve-overview upstream
 
 Flags for generate:
   -source dir   source-of-truth directory (default "source")
   -out file     profile to write (default "overview.yaml")
   -cache dir    reference cache directory (default: user cache directory)
+
+Run upstream to report whether the pinned SDE build and Z-S reference pack are
+still the newest upstream. It is read-only and exits non-zero on drift.
 `
 
 func main() {
@@ -42,6 +46,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "generate":
 		return runGenerate(args[1:], stdout, stderr)
+	case "upstream":
+		return runUpstream(stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown command %q\n%s", args[0], usage)
 		return 2
@@ -106,6 +112,45 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "wrote %s\n", *outPath)
 	return 0
+}
+
+// runUpstream reports whether the pinned reference data is still the newest
+// upstream. It exits non-zero on drift so a scheduled workflow can open an
+// issue; bumping a pin stays a human decision.
+func runUpstream(stdout, stderr io.Writer) int {
+	statuses, err := reference.CheckUpstream(context.Background(), nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "check upstream: %v\n", err)
+		return 1
+	}
+
+	stale := false
+	for _, status := range statuses {
+		if !status.Current {
+			stale = true
+		}
+	}
+	if !stale {
+		fmt.Fprintln(stdout, "All pinned reference data is current.")
+		return 0
+	}
+
+	fmt.Fprintln(stdout, "The pinned reference data has moved upstream. Bumping a pin is a deliberate")
+	fmt.Fprintln(stdout, "regeneration, not an automatic upgrade: update `internal/reference/fetch.go`,")
+	fmt.Fprintln(stdout, "run `go test ./...`, and let release-please cut the version.")
+	fmt.Fprintln(stdout)
+	for _, status := range statuses {
+		marker := "up to date"
+		if !status.Current {
+			marker = "**UPDATE AVAILABLE**"
+		}
+		fmt.Fprintf(stdout, "- **%s** — pinned `%s`, latest `%s` — %s", status.Name, status.Pinned, status.Latest, marker)
+		if status.Detail != "" {
+			fmt.Fprintf(stdout, " (%s)", status.Detail)
+		}
+		fmt.Fprintln(stdout)
+	}
+	return 1
 }
 
 // loadSource reads the five source-of-truth files as raw bytes. Decoding them

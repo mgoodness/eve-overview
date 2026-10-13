@@ -1,0 +1,48 @@
+name: Upstream
+
+# The pinned reference data (the CCP SDE build and the Z-S pack) moves
+# independently of this repository. This watches both, and opens an issue when
+# either drifts — it never bumps a pin itself: regenerating from a new SDE build
+# or pack is a deliberate change, reviewed and released like any other.
+on:
+  schedule:
+    # Mondays at 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Opening or commenting on the drift issue.
+  issues: write
+
+jobs:
+  check-upstream:
+    name: check-upstream
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      # Exits non-zero on drift, having written the report either way. The
+      # outcome (not the output) decides whether to raise an issue.
+      - name: Check upstream reference data
+        id: check
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: go run ./cmd/eve-overview upstream > upstream-report.md
+      - name: Open or update the drift issue
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --state open --search "Upstream reference data has moved in:title" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file upstream-report.md
+          else
+            gh issue create --title "Upstream reference data has moved" --body-file upstream-report.md
+          fi
