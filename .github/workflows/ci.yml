@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Read-only: the test job only needs the source it checks out.
+permissions:
+  contents: read
+
+# One run per ref; a newer push cancels an in-flight older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      # -count=1 bypasses the test-result cache so every run actually executes;
+      # -short is deliberately absent, because overview.TestMain fails a
+      # non-short run in which every test skipped. That is what stops an
+      # unreachable reference pack from masquerading as a green build, and -v
+      # keeps the conformance test's SKIP line in the job log.
+      - name: Test
+        run: go test ./... -count=1 -v
