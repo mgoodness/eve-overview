@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — wormhole-hunter EVE UI layout</title>
+<!--
+  THROWAWAY PROTOTYPE — not production, not merged to main.
+
+  Question: "How should the client be arranged to fly the generated
+  wormhole-hunter profile?" Three structurally different layouts, switchable
+  with ?variant=A|B|C and the floating bar.
+
+  It exists to be judged in the browser and then forgotten; the decision it
+  settles lands in docs/, this file lands on a throwaway branch.
+-->
+<style>
+:root{
+  --bg:#0b0e13; --space:#0e1420; --win:#12161d; --win2:#171d26; --line:#2a3038;
+  --text:#c8d0da; --muted:#7b8796; --accent:#6cc7ff;
+  --hostile:#ff6b6b; --friendly:#6cb0ff; --neutral:#d6c07a; --faint:#8a94a3;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden}
+.client{position:fixed;inset:0;background:
+  radial-gradient(1200px 600px at 62% 30%, #14203a 0%, transparent 60%),
+  radial-gradient(800px 500px at 20% 80%, #101a2c 0%, transparent 55%),
+  var(--bg);}
+.win{position:absolute;background:var(--win);border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.45)}
+.win>.bar{height:22px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:0 8px;background:var(--win2);border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}
+.win>.bar .dot{width:8px;height:8px;border-radius:50%;background:#39424f}
+.win>.bar .t{color:var(--text);font-weight:600;letter-spacing:.3px}
+.win>.bar .s{margin-left:auto;color:var(--accent)}
+.body{flex:1 1 auto;overflow:hidden;padding:4px 0}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:16px 1fr 84px 62px;gap:6px;align-items:center;padding:2px 8px;white-space:nowrap}
+.row:nth-child(odd){background:rgba(255,255,255,.017)}
+.row .tag{width:14px;height:14px;border-radius:3px;display:grid;place-items:center;font-size:9px;font-weight:700;color:#0b0e13}
+.row .name{overflow:hidden;text-overflow:ellipsis}
+.row .type{color:var(--faint)}
+.row .dist{text-align:right;color:var(--muted)}
+.h{color:var(--hostile)} .f{color:var(--friendly)} .n{color:var(--neutral)}
+.bg-h{background:var(--hostile)} .bg-f{background:var(--friendly)} .bg-n{background:var(--neutral)} .bg-x{background:#4a5462;color:#c8d0da}
+.tabs{display:flex;gap:2px;padding:3px 6px 0;border-bottom:1px solid var(--line);background:var(--win2)}
+.tab{padding:3px 7px;border-radius:3px 3px 0 0;color:var(--muted);font-size:10.5px}
+.tab.on{background:var(--win);color:var(--text);border:1px solid var(--line);border-bottom-color:var(--win)}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;padding:5px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:10.5px}
+.ctl b{color:var(--accent);font-weight:600}
+.local{columns:2;padding:4px 8px}
+.local div{color:var(--neutral);padding:1px 0}
+.watermark{position:absolute;top:8px;right:10px;color:#3a4452;font-size:10px;letter-spacing:2px;text-transform:uppercase;pointer-events:none}
+.tip{position:absolute;left:10px;top:8px;max-width:330px;color:var(--muted);font-size:10.5px;background:rgba(10,14,20,.72);border:1px solid var(--line);border-radius:4px;padding:6px 8px;pointer-events:none}
+.tip b{color:var(--text)}
+.tip .why{color:var(--accent)}
+/* floating prototype switcher — deliberately not part of the design */
+.switcher{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;
+  background:#f4f7fb;color:#0b0e13;border-radius:999px;padding:6px 8px;box-shadow:0 8px 30px rgba(0,0,0,.55);z-index:50;font-weight:600}
+.switcher button{border:0;background:#0b0e13;color:#f4f7fb;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px}
+.switcher .lbl{min-width:230px;text-align:center;font-size:12px}
+.switcher .k{color:#5a6472;font-weight:500}
+</style>
+</head>
+<body>
+<div id="client" class="client"></div>
+<div id="tip" class="tip"></div>
+<div class="watermark">prototype · throwaway</div>
+<div class="switcher" id="switcher">
+  <button id="prev" aria-label="Previous variant">←</button>
+  <span class="lbl" id="lbl"></span>
+  <button id="next" aria-label="Next variant">→</button>
+  <span class="k">?variant=</span>
+</div>
+<script>
+/* ---------- mock data (a J-space hunter, on a hole grid) ---------- */
+const SHIPS = [
+  {tag:'H',cls:'bg-h',name:'Loki',        type:'Strategic Cruiser',dist:'4,203 m'},
+  {tag:'H',cls:'bg-h',name:'Sabre',       type:'Interdictor',      dist:'6,110 m'},
+  {tag:'H',cls:'bg-h',name:'Astero',      type:'Prototype Ex.',    dist:'12.4 km'},
+  {tag:'N',cls:'bg-n',name:'Venture',     type:'Frigate',          dist:'18.9 km'},
+];
+const CELESTIALS = [
+  {tag:'W',cls:'bg-x',name:'Wormhole',    type:'Wormhole',         dist:'0 m'},
+  {tag:'◆',cls:'bg-x',name:'Mobile Depot',type:'Deployable',       dist:'9,400 m'},
+  {tag:'▲',cls:'bg-x',name:'Force Field', type:'Control Tower',    dist:'31 km'},
+  {tag:'●',cls:'bg-x',name:'Sun',         type:'Celestial',        dist:'8.1 AU'},
+  {tag:'●',cls:'bg-x',name:'Planet II',   type:'Planet',           dist:'3.2 AU'},
+];
+const LOCAL = ['Aria Vex','Bram K.','C. Doran','Elsa Rune','F. Nyx','Gemma T.','Hale O.','Ivo P.','Jax M.'];
+const FLEET = ['(FC) Aria Vex','Morgan L.','Rin A.','Tao B.'];
+
+const row = r => `<div class="row"><span class="tag ${r.cls}">${r.tag}</span><span class="name">${r.name}</span><span class="type">${r.type}</span><span class="dist">${r.dist}</span></div>`;
+const rows = list => `<div class="rows">${list.map(row).join('')}</div>`;
+
+const win = (style,title,sub,body) => `<section class="win" style="${style}">
+  <div class="bar"><span class="dot"></span><span class="t">${title}</span><span class="s">${sub||''}</span></div>
+  <div class="body">${body}</div></section>`;
+
+const overview = (tabs,active,list,extra='') => `
+  <div class="tabs">${tabs.map(t=>`<span class="tab ${t===active?'on':''}">${t}</span>`).join('')}</div>
+  ${extra}${rows(list)}`;
+
+const dscan = (filter,both=false) => `
+  <div class="ctl"><span>range <b>14.3 AU</b></span><span>angle <b>360°</b></span><span>filter <b>${filter}</b></span></div>
+  ${rows(both ? [...SHIPS, CELESTIALS[0]] : SHIPS)}`;
+
+/* ---------- Variant A — single overview (the classic) ---------- */
+function buildA(){
+  return [
+    win('left:8px;top:8px;width:250px;height:150px','Local','9 pilots',
+        `<div class="local">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>`),
+    win('left:8px;top:166px;width:250px;height:150px','Chat / Fleet','—',
+        `<div class="body" style="padding:6px 8px;color:var(--muted)">[intel] hole C4 &rarr; 3 jumps<br><span class="f">${FLEET[0]}</span> align to home<br>${FLEET.slice(1).join(' · ')}</div>`),
+    win('left:8px;bottom:8px;right:270px;top:324px','Selected Item','Loki',
+        `<div class="rows">${row({tag:'H',cls:'bg-h',name:'Loki',type:'Strategic Cruiser',dist:'4,203 m'})}</div>
+         <div style="padding:6px 10px;color:var(--muted)">vel 1,204 m/s · angular 0.014 · shield 82%</div>`),
+    win('right:8px;top:8px;bottom:8px;width:254px;left:auto','Overview','PVP',
+        overview(['PVP','WARP','ALL'],'PVP',[...SHIPS, CELESTIALS[0]])),
+    win('right:274px;bottom:8px;width:230px;height:132px','D-Scan','active overview',
+        dscan('active overview')),
+  ].join('');
+}
+
+/* ---------- Variant B — two overview windows (the recommendation) ---------- */
+function buildB(){
+  return [
+    win('left:8px;top:8px;width:240px;height:168px','Local','9 pilots',
+        `<div class="local">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>`),
+    win('left:8px;top:184px;width:240px;bottom:8px','Fleet','4 members',
+        `<div class="rows" style="padding:4px 0">${FLEET.map(n=>`<div class="row" style="grid-template-columns:1fr"><span class="name f">${n}</span></div>`).join('')}</div>
+         <div style="padding:6px 8px;color:var(--muted);border-top:1px solid var(--line)">Watchlist: FC · logi · scout</div>`),
+    win('right:8px;top:8px;bottom:8px;width:260px','Working (list + brackets)','Engage',
+        overview(['Engage','PvE','Loot'],'Engage',[...SHIPS, CELESTIALS[0], CELESTIALS[1]],'')),
+    win('right:274px;top:8px;width:220px;height:210px','Navigation','Warp out',
+        overview(['Warp out','System'],'Warp out',CELESTIALS.slice(2))),
+    win('right:274px;top:224px;bottom:8px;width:220px','Selected Item','—',
+        `<div class="rows">${row(SHIPS[0])}</div>
+         <div style="padding:6px 10px;color:var(--muted)">d-scan aimed from the working list;<br>hole bookmarked from Navigation<br>without leaving the shooting list.</div>`),
+    win('left:256px;bottom:8px;width:236px;height:132px','D-Scan','DSCAN: Extra',
+        dscan('DSCAN: Extra',true)),
+  ].join('');
+}
+
+/* ---------- Variant C — wormhole cockpit (dashboard) ---------- */
+function buildC(){
+  return [
+    `<div style="position:absolute;inset:8px 8px auto 8px;height:34px;display:flex;align-items:center;gap:14px;background:var(--win);border:1px solid var(--line);border-radius:4px;padding:0 12px">
+       <span class="tag bg-x">W</span><b>J-204833 &nbsp;C4</b>
+       <span class="muted" style="color:var(--muted)">local 9</span>
+       <span style="color:var(--hostile)">3 hostiles</span>
+       <span style="color:var(--muted)">home hole 4.2 AU</span>
+       <span style="margin-left:auto;color:var(--muted)">cloak OK · d-scan 2s</span>
+     </div>`,
+    /* left rail: local + fleet + watchlist, stacked and compact */
+    win('left:8px;top:50px;width:212px;bottom:8px','Local &amp; Fleet','9 · 4',
+        `<div class="local" style="columns:1">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>
+         <div style="border-top:1px solid var(--line);padding:4px 0">${FLEET.map(n=>`<div class="row" style="grid-template-columns:1fr"><span class="name f">${n}</span></div>`).join('')}</div>`),
+    /* centre: two overviews side by side, equal weight */
+    win('left:228px;top:50px;width:calc(50% - 236px);bottom:8px','Engage list','PVP+celestials',
+        overview(['Engage','Loot'],'Engage',SHIPS)),
+    win('left:calc(50% - 4px);top:50px;width:calc(50% - 236px);bottom:8px','Navigation','Warp out',
+        overview(['Warp out','System'],'Warp out',CELESTIALS)),
+    /* right rail: d-scan with controls + selected item + probe */
+    win('right:8px;top:50px;width:212px;height:236px','D-Scan','DSCAN: Extra',
+        `<div class="ctl"><span>range <b>14.3 AU</b></span><span>angle <b>360°</b></span></div>
+         <div class="ctl"><span>filter <b>DSCAN: Extra</b></span><span>V</span><span>scan</span></div>` +
+        rows([...SHIPS,SELCEL()])),
+    win('right:8px;top:294px;width:212px;height:150px','Selected Item','Sabre',
+        `<div class="rows">${row(SHIPS[1])}</div><div style="padding:6px 10px;color:var(--muted)">angular 0.03 · 6,110 m</div>`),
+    win('right:8px;top:452px;width:212px;bottom:8px','Probe Scanner','0 sigs',
+        `<div style="padding:8px;color:var(--muted)">no signatures — hole already resolved<br><span style="color:var(--friendly)">bookmarked</span></div>`),
+  ].join('');
+}
+const SELCEL = () => ({tag:'W',cls:'bg-x',name:'Wormhole',type:'Wormhole',dist:'0 m'});
+
+/* ---------- switcher ---------- */
+const VARIANTS = {
+  A:{name:'Single overview',       why:'One tall overview with tabs; the classic, and the one that forces tab-flipping to aim d-scan.', build:buildA},
+  B:{name:'Two overview windows',  why:'Working list stays the shooting list; a second Navigation window carries celestials + the hole, so d-scan and bookmarks never cost a tab change.', build:buildB},
+  C:{name:'Wormhole cockpit',      why:'A dashboard: status strip, two equal overview panes, d-scan docked with its controls, local/fleet rail, probe status visible.', build:buildC},
+};
+const KEYS = Object.keys(VARIANTS);
+const client = document.getElementById('client');
+const tip = document.getElementById('tip');
+const lbl = document.getElementById('lbl');
+
+function render(){
+  const v = new URLSearchParams(location.search).get('variant');
+  const key = KEYS.includes(v) ? v : 'A';
+  const variant = VARIANTS[key];
+  client.innerHTML = variant.build();
+  document.querySelectorAll('.win').forEach((w,i)=>w.style.setProperty('--i',i));
+  tip.innerHTML = `<b>Variant ${key} — ${variant.name}</b><br><span class="why">why: ${variant.why}</span>`;
+  lbl.textContent = `${key} (${variant.name})`;
+  document.body.dataset.variant = key;
+}
+function go(delta){
+  const v = new URLSearchParams(location.search).get('variant');
+  const i = Math.max(0, KEYS.indexOf(KEYS.includes(v)?v:'A'));
+  const next = KEYS[(i + delta + KEYS.length) % KEYS.length];
+  history.replaceState(null,'',`?variant=${next}`);
+  render();
+}
+document.getElementById('prev').onclick = () => go(-1);
+document.getElementById('next').onclick = () => go(1);
+addEventListener('keydown', e => {
+  const t = e.target;
+  if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+  if(e.key==='ArrowLeft') go(-1);
+  if(e.key==='ArrowRight') go(1);
+});
+addEventListener('popstate', render);
+render();
+</script>
+</body>
+</html>
