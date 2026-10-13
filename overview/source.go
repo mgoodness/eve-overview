@@ -58,8 +58,8 @@ type tabSpec struct {
 }
 
 type appearanceSpec struct {
-	FlagOrder           []int           `yaml:"flagOrder"`
-	FlagStates          []int           `yaml:"flagStates"`
+	ColortagOrder       []int           `yaml:"flagOrder"`
+	ColortagStates      []int           `yaml:"flagStates"`
 	BackgroundOrder     []int           `yaml:"backgroundOrder"`
 	BackgroundStates    []int           `yaml:"backgroundStates"`
 	StateBlinks         orderedPairs    `yaml:"stateBlinks"`

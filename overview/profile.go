@@ -19,8 +19,8 @@ type profileDocument struct {
 	BackgroundOrder     []int    `yaml:"backgroundOrder"`
 	BackgroundStates    []int    `yaml:"backgroundStates"`
 	ColumnOrder         []string `yaml:"columnOrder"`
-	FlagOrder           []int    `yaml:"flagOrder"`
-	FlagStates          []int    `yaml:"flagStates"`
+	ColortagOrder       []int    `yaml:"flagOrder"`
+	ColortagStates      []int    `yaml:"flagStates"`
 	OverviewColumns     []string `yaml:"overviewColumns"`
 	Presets             []pair   `yaml:"presets"`
 	ShipLabelOrder      []any    `yaml:"shipLabelOrder"`
@@ -54,8 +54,8 @@ func buildProfile(src *decodedSource, matrix *groupMatrix, lib *library) (*profi
 		BackgroundOrder:     src.appearance.BackgroundOrder,
 		BackgroundStates:    src.appearance.BackgroundStates,
 		ColumnOrder:         src.columns.ColumnOrder,
-		FlagOrder:           src.appearance.FlagOrder,
-		FlagStates:          src.appearance.FlagStates,
+		ColortagOrder:       src.appearance.ColortagOrder,
+		ColortagStates:      src.appearance.ColortagStates,
 		OverviewColumns:     src.columns.OverviewColumns,
 		Presets:             presets,
 		ShipLabelOrder:      src.appearance.ShipLabelOrder,
@@ -95,12 +95,13 @@ func resolveGroupSets(sets map[string][]groupRef, matrix *groupMatrix) (map[stri
 // with a loaded one fails loudly: silently overriding would drop a Z-S Preset
 // the profile promises to carry.
 func buildPresets(specs []presetSpec, sets map[string][]int, lib *library) ([]pair, map[string]string, error) {
-	presets := make([]pair, 0, len(lib.presets)+len(specs))
-	names := make(map[string]string, len(lib.names)+len(specs))
-	for name, emitted := range lib.names {
-		names[name] = emitted
+	presets := make([]pair, 0, len(lib.order)+len(specs))
+	names := make(map[string]string, len(lib.byName)+len(specs))
+	for _, key := range lib.order {
+		loaded := lib.byName[key]
+		presets = append(presets, loaded.entry)
+		names[key] = loaded.name
 	}
-	presets = append(presets, lib.presets...)
 
 	for _, spec := range specs {
 		key := stripMarkup(spec.Name)
