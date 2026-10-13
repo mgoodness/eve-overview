@@ -71,6 +71,10 @@ type appearanceSpec struct {
 type columnsSpec struct {
 	ColumnOrder     []string `yaml:"columnOrder"`
 	OverviewColumns []string `yaml:"overviewColumns"`
+	// TabColumns overrides the profile-wide columns for the Tabs it names, by
+	// markup-free Tab name. A Tab it does not name inherits, and the client
+	// keys are then absent from that Tab's entry entirely.
+	TabColumns map[string][]string `yaml:"tabColumns"`
 }
 
 // shipLabelSpec is one bracket-label segment. Attribute pointers distinguish

@@ -5,21 +5,24 @@
 # FIRST State it carries that appears in the order AND in the matching
 # whitelist — so order is everything.
 #
-# Ticket #6 restructures this layer; #2 ships the Z-S v10.06.09 base unchanged.
+# Colortags are Z-S's whitelist and priority order unchanged: broad coverage,
+# with the pack's existing collisions already resolved. Backgrounds keep only
+# relationship and threat States: no standing (48), neutral standing (17), the
+# reserved identifier (20) and agent-interactable (21) draw none, because in
+# J-space every stranger carries one of them and a highlight for them is noise
+# rather than signal. The militia States (44/45) keep exactly the pack's
+# treatment. Blinks reduce to the three dangerous States: war target (13),
+# criminal (51) and low security status (9).
 flagOrder: [13, 44, 52, 11, 12, 14, 15, 16, 45, 9, 51, 68, 50, 53, 19, 18, 49, 10, 17, 48, 21, 20, 66]
 flagStates: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 44, 45, 48, 49, 50, 51, 52, 53, 68]
-backgroundOrder: [13, 44, 52, 11, 12, 14, 15, 16, 45, 49, 19, 18, 9, 51, 68, 50, 53, 10, 20, 21, 17, 48, 66]
-backgroundStates: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 44, 45, 48, 49, 50, 51, 52, 53, 68]
+backgroundOrder: [13, 44, 52, 11, 12, 14, 15, 16, 45, 49, 19, 18, 9, 51, 68, 50, 53, 10, 66]
+backgroundStates: [9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 44, 45, 49, 50, 51, 52, 53, 68]
 stateBlinks:
-  background_13: false
-  background_44: false
-  flag_13: true
-  flag_44: true
-  flag_50: false
-  flag_51: true
-  flag_52: true
-  flag_68: true
   flag_9: true
+  flag_13: true
+  flag_51: true
+# Inherited from the reference pack unchanged, including the colour names for
+# Background States that no longer draw: those names are simply unused.
 stateColorsNameList:
   background_10: white
   background_12: darkBlue
@@ -38,9 +41,13 @@ stateColorsNameList:
   background_9: orange
   flag_48: black
 # Ship-label segments. `key` is the segment identifier (null for the spacer),
-# `type` its label kind; the rest style it. Ticket #6 reduces these to the
-# one-line ship type + pilot name label; #2 ships a minimal two-segment set.
-shipLabelOrder: [ship type, linebreak, pilot name]
+# `type` its label kind; the rest style it.
+#
+# One line: ship type then pilot name, so a Bracket does not occlude a busy
+# grid. The reference pack's alliance, corporation and linebreak segments are
+# dropped, and with them the trailing markup its pilot-name segment carried to
+# open the next line.
+shipLabelOrder: [ship type, pilot name]
 shipLabels:
   - key: ship type
     type: ship type
@@ -51,18 +58,8 @@ shipLabels:
     underline: true
     fontsize: 12
     color: [1.0, 0.7, 0.0]
-  - key: linebreak
-    type: linebreak
-    pre: null
-    post: null
-    state: null
-    bold: false
-    italic: false
-    underline: false
-    fontsize: null
-    color: null
   - key: pilot name
     type: pilot name
     pre: " ["
-    post: "]<color=0xFFFFFFFF><b> -"
+    post: "]"
     state: 1

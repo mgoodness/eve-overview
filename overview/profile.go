@@ -45,7 +45,7 @@ func buildProfile(src *decodedSource, matrix *groupMatrix, lib *library) (*profi
 		return nil, err
 	}
 
-	tabs, err := buildTabs(src.tabs, presetNames)
+	tabs, err := buildTabs(src.tabs, presetNames, src.columns)
 	if err != nil {
 		return nil, err
 	}
@@ -196,8 +196,12 @@ func asIntList(value any) []int {
 
 // buildTabs emits one tabSetup slot per authored tab. The list preset is
 // written with its colour markup; the bracket preset is referenced markup-free,
-// which is the client's convention.
-func buildTabs(specs []tabSpec, presetNames map[string]string) ([]pair, error) {
+// which is the client's convention. A Tab that overrides the profile-wide
+// columns additionally carries the client's two per-Tab column keys, appended
+// after the four base pairs; an overriding key is never emitted for a Tab that
+// inherits, because a present key would pin that Tab against future
+// profile-wide changes.
+func buildTabs(specs []tabSpec, presetNames map[string]string, columns columnsSpec) ([]pair, error) {
 	tabs := make([]pair, 0, len(specs))
 	for index, spec := range specs {
 		listName, ok := presetNames[spec.List]
@@ -208,14 +212,38 @@ func buildTabs(specs []tabSpec, presetNames map[string]string) ([]pair, error) {
 		if !ok {
 			return nil, fmt.Errorf("tab %q binds unknown bracket preset %q", spec.Name, spec.Bracket)
 		}
-		tabs = append(tabs, pair{index, []pair{
+		entry := []pair{
 			{"bracket", stripMarkup(bracketName)},
 			{"color", nil},
 			{"name", spec.Name},
 			{"overview", listName},
-		}})
+		}
+		if shown, override := columns.TabColumns[stripMarkup(spec.Name)]; override {
+			entry = append(entry,
+				pair{"tabColumnOrder", columnOrderFor(columns.ColumnOrder, shown)},
+				pair{"tabColumns", shown},
+			)
+		}
+		tabs = append(tabs, pair{index, entry})
 	}
 	return tabs, nil
+}
+
+// columnOrderFor reduces the profile's master column order to the columns a
+// Tab shows, preserving the master order: the client derives a Tab's order
+// from the profile-wide one rather than from the Tab's own list.
+func columnOrderFor(order, shown []string) []string {
+	shownSet := make(map[string]bool, len(shown))
+	for _, column := range shown {
+		shownSet[column] = true
+	}
+	out := make([]string, 0, len(shown))
+	for _, column := range order {
+		if shownSet[column] {
+			out = append(out, column)
+		}
+	}
+	return out
 }
 
 // buildShipLabels emits each segment's attributes in the fixed order the
