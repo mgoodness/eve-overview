@@ -23,16 +23,23 @@ var workflowPath = filepath.Join("..", ".github", "workflows", "ci.yml")
 
 func loadWorkflow(t *testing.T) *yaml.Node {
 	t.Helper()
-	data, err := os.ReadFile(workflowPath)
+	return loadWorkflowAt(t, workflowPath)
+}
+
+// loadWorkflowAt parses the workflow at path. It is shared with the release
+// workflow's tests, which observe a second declarative artefact the same way.
+func loadWorkflowAt(t *testing.T, path string) *yaml.Node {
+	t.Helper()
+	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("read %s: %v", workflowPath, err)
+		t.Fatalf("read %s: %v", path, err)
 	}
 	var document yaml.Node
 	if err := yaml.Unmarshal(data, &document); err != nil {
-		t.Fatalf("parse %s: %v", workflowPath, err)
+		t.Fatalf("parse %s: %v", path, err)
 	}
 	if document.Kind != yaml.DocumentNode || len(document.Content) == 0 {
-		t.Fatalf("%s is not a YAML document", workflowPath)
+		t.Fatalf("%s is not a YAML document", path)
 	}
 	return document.Content[0]
 }

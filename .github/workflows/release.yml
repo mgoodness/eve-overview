@@ -1,0 +1,48 @@
+name: Release
+
+# A version tag is the release trigger. Pushing `v1.2.3` generates the profile
+# from that exact source tree and publishes it as a release asset, so a profile
+# can be pinned by tag. Nothing else should create tags; a human does, as the
+# last step of cutting a release — see docs/install.md.
+on:
+  push:
+    tags:
+      - "v*"
+
+# Creating the release needs a write token. GITHUB_TOKEN is enough for a
+# tag-triggered release; no secret or GitHub App is involved.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      # The generator fetches the pinned reference pack and SDE and verifies
+      # both against their SHA-256, so a release can only be built from the
+      # data the pins name. The pins it used ride in the profile's own header.
+      - name: Generate profile
+        run: go run ./cmd/eve-overview generate -out overview.yaml
+      - name: Checksum the profile
+        run: sha256sum overview.yaml > SHA256SUMS
+      # The published notes are the checked-in template plus the profile's own
+      # checksum, so the release carries the Z-S attribution, the GPLv3 notice,
+      # the reference pins and the hash of the asset a consumer downloads.
+      - name: Compose release notes
+        run: |
+          cp docs/release-notes-template.md release-notes.md
+          printf '\n```\n' >> release-notes.md
+          cat SHA256SUMS >> release-notes.md
+          printf '```\n' >> release-notes.md
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" overview.yaml SHA256SUMS --title "${GITHUB_REF_NAME}" --notes-file release-notes.md --verify-tag
