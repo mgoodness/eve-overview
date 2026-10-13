@@ -30,18 +30,22 @@ type Options struct {
 	// groups.jsonl, mapping Group names to Group identifiers.
 	SDEGroups []byte
 
-	// ReferencePack is the Z-S reference pack the emitted profile builds
-	// alongside. Ticket #2's walking skeleton authors its own Presets and does
-	// not yet overlay the pack; the overlay lands with the library ticket.
+	// ReferencePack is the Z-S reference pack the emitted profile is built
+	// alongside. Generate loads its Presets and adds the source's authored
+	// Presets on top, never modifying the loaded ones. Nil is an empty library,
+	// which is what the walking-skeleton tests pass.
 	ReferencePack []byte
 }
 
 // Generate renders the overview profile described by src, resolving Group
-// names through the SDE matrix in opts.
+// names through the SDE matrix in opts and building alongside the Z-S Preset
+// library in opts.ReferencePack.
 //
 // A Group name that does not resolve — because the SDE has no such Group, or
 // because the name is ambiguous — is an error naming the offending Group. That
-// failure is invisible until a fight, so it is never swallowed.
+// failure is invisible until a fight, so it is never swallowed. An authored
+// Preset name that collides with a loaded one, once colour markup is ignored,
+// is likewise an error rather than a silent override.
 func Generate(src Source, opts Options) ([]byte, error) {
 	matrix, err := parseGroupMatrix(opts.SDEGroups)
 	if err != nil {
@@ -51,7 +55,11 @@ func Generate(src Source, opts Options) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	doc, err := buildProfile(decoded, matrix)
+	lib, err := parseLibrary(opts.ReferencePack)
+	if err != nil {
+		return nil, err
+	}
+	doc, err := buildProfile(decoded, matrix, lib)
 	if err != nil {
 		return nil, err
 	}

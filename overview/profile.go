@@ -32,14 +32,15 @@ type profileDocument struct {
 }
 
 // buildProfile assembles the profile document, resolving every Group name the
-// source mentions through the SDE matrix.
-func buildProfile(src *decodedSource, matrix *groupMatrix) (*profileDocument, error) {
+// source mentions through the SDE matrix and overlaying the authored Presets
+// on the loaded Z-S library.
+func buildProfile(src *decodedSource, matrix *groupMatrix, lib *library) (*profileDocument, error) {
 	sets, err := resolveGroupSets(src.groupSets, matrix)
 	if err != nil {
 		return nil, err
 	}
 
-	presets, presetNames, err := buildPresets(src.presets, sets)
+	presets, presetNames, err := buildPresets(src.presets, sets, lib)
 	if err != nil {
 		return nil, err
 	}
@@ -88,15 +89,23 @@ func resolveGroupSets(sets map[string][]groupRef, matrix *groupMatrix) (map[stri
 	return resolved, nil
 }
 
-// buildPresets emits each authored preset and indexes it by its markup-free
-// name, which is how tabs reference it.
-func buildPresets(specs []presetSpec, sets map[string][]int) ([]pair, map[string]string, error) {
-	presets := make([]pair, 0, len(specs))
-	names := make(map[string]string, len(specs))
+// buildPresets emits the loaded library unchanged, then appends each authored
+// preset and indexes the combined library by markup-free name, which is how
+// tabs and authored presets reference a preset. An authored name that collides
+// with a loaded one fails loudly: silently overriding would drop a Z-S Preset
+// the profile promises to carry.
+func buildPresets(specs []presetSpec, sets map[string][]int, lib *library) ([]pair, map[string]string, error) {
+	presets := make([]pair, 0, len(lib.presets)+len(specs))
+	names := make(map[string]string, len(lib.names)+len(specs))
+	for name, emitted := range lib.names {
+		names[name] = emitted
+	}
+	presets = append(presets, lib.presets...)
+
 	for _, spec := range specs {
 		key := stripMarkup(spec.Name)
-		if _, duplicate := names[key]; duplicate {
-			return nil, nil, fmt.Errorf("preset %q collides with an earlier preset once markup is stripped", spec.Name)
+		if existing, collision := names[key]; collision {
+			return nil, nil, fmt.Errorf("preset %q collides with preset %q once markup is stripped", spec.Name, existing)
 		}
 		names[key] = spec.Name
 

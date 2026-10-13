@@ -73,14 +73,24 @@ func runGenerate(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	// Fetching the SDE matrix is a no-op once cached, so a second run makes no
-	// network request.
-	sdeGroups, err := reference.New(cache).SDEGroups(context.Background())
+	// Fetching is a no-op once cached, so a second run makes no network
+	// request. Both artefacts are pinned and checksum-verified by the fetcher;
+	// a mismatch aborts generation rather than feeding it unverified data.
+	fetcher := reference.New(cache)
+	sdeGroups, err := fetcher.SDEGroups(context.Background())
 	if err != nil {
 		fmt.Fprintf(stderr, "fetch SDE Group matrix: %v\n", err)
 		return 1
 	}
-	profile, err := overview.Generate(source, overview.Options{SDEGroups: sdeGroups})
+	referencePack, err := fetcher.ReferencePack(context.Background())
+	if err != nil {
+		fmt.Fprintf(stderr, "fetch reference pack: %v\n", err)
+		return 1
+	}
+	profile, err := overview.Generate(source, overview.Options{
+		SDEGroups:     sdeGroups,
+		ReferencePack: referencePack,
+	})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

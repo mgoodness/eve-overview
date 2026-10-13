@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -87,7 +88,7 @@ func TestDialectConformance(t *testing.T) {
 
 	assertOrderedPairs(t, ours, "presets")
 	assertOrderedPairs(t, ours, "tabSetup")
-	assertMarkupPresetNames(t, ours)
+	assertAuthoredPresetNamesHaveMarkup(t, ours, theirs)
 	assertMarkupTabNames(t, ours)
 }
 
@@ -262,19 +263,257 @@ func assertOrderedPairs(t *testing.T, doc map[string]any, key string) {
 
 var colorMarkup = regexp.MustCompile(`^<color=0x[0-9A-Fa-f]{8}>.*</color>$`)
 
-// assertMarkupPresetNames checks every authored Preset name carries the
-// client's colour markup in its exact 0xAARRGGBB form.
-func assertMarkupPresetNames(t *testing.T, doc map[string]any) {
+// eveMarkup matches the inline markup the client writes into names, the same
+// classes the generator strips. The conformance test strips it independently,
+// so the two sides of the comparison cannot share a bug.
+var eveMarkup = regexp.MustCompile(`</?(?:color(?:=0x[0-9A-Fa-f]+)?|fontsize(?:=\d+)?)>|</?[biu]>`)
+
+// withoutMarkup strips the client's inline markup, leaving the plain name a
+// preset is referenced by.
+func withoutMarkup(name string) string {
+	return strings.TrimSpace(eveMarkup.ReplaceAllString(name, ""))
+}
+
+// presetNamesByMarkupFreeName indexes a decoded profile's Presets by the name
+// a Tab or another Preset would refer to them by.
+func presetNamesByMarkupFreeName(t *testing.T, doc map[string]any) map[string]string {
 	t.Helper()
-	presets := doc["presets"].([]any)
+	presets, ok := doc["presets"].([]any)
+	if !ok {
+		t.Fatalf("presets = %#v, want a sequence", doc["presets"])
+	}
+	byName := make(map[string]string, len(presets))
+	for i, raw := range presets {
+		name, ok := raw.([]any)[0].(string)
+		if !ok {
+			t.Fatalf("presets[%d] name = %#v, want a string", i, raw.([]any)[0])
+		}
+		byName[withoutMarkup(name)] = name
+	}
+	return byName
+}
+
+// authoredPresetNames are the Presets our source authors rather than inherits.
+// They are the names the library-match assertion sets aside.
+var authoredPresetNames = map[string]bool{"Engage": true}
+
+// TestEmittedPresetsMatchReferenceLibrary is ticket #4's central property: the
+// emitted Preset set, minus our authored Presets, is exactly the reference
+// pack's Preset set — matched once colour markup is ignored — and each loaded
+// Preset rides through with its body unmodified. Both sides are decoded with
+// the same generic decoder, so this compares the documents a client would read
+// rather than the generator's model.
+func TestEmittedPresetsMatchReferenceLibrary(t *testing.T) {
+	pack, ok := referencePack(t)
+	if !ok {
+		conformanceSkipped = true
+		t.Skip("reference pack unavailable (offline?); skipping library overlay conformance — run without -short to require it")
+	}
+
+	emitted := generateWith(t, skeletonSource(), overview.Options{
+		SDEGroups:     []byte(skeletonSDEGroups),
+		ReferencePack: pack,
+	})
+	ours := decodeGeneric(t, emitted)
+	theirs := decodeGeneric(t, pack)
+
+	ourNames := presetNamesByMarkupFreeName(t, ours)
+	referenceNames := presetNamesByMarkupFreeName(t, theirs)
+
+	for name := range authoredPresetNames {
+		delete(ourNames, name)
+	}
+
+	if len(ourNames) != len(referenceNames) {
+		t.Errorf("emitted %d inherited Presets, want the reference pack's %d", len(ourNames), len(referenceNames))
+	}
+	for name, referenceExact := range referenceNames {
+		ourExact, carried := ourNames[name]
+		if !carried {
+			t.Errorf("reference Preset %q is missing from the emitted document", referenceExact)
+			continue
+		}
+		if ourExact != referenceExact {
+			t.Errorf("emitted %q, want the reference pack's exact name %q", ourExact, referenceExact)
+		}
+	}
+
+	ourEntries := presetEntriesFrom(t, ours)
+	referenceEntries := presetEntriesFrom(t, theirs)
+	for name, referenceExact := range referenceNames {
+		ourExact, carried := ourNames[name]
+		if !carried {
+			continue
+		}
+		if !reflect.DeepEqual(ourEntries[ourExact], referenceEntries[referenceExact]) {
+			t.Errorf("loaded Preset %q was modified:\n got %#v\nwant %#v", referenceExact, ourEntries[ourExact], referenceEntries[referenceExact])
+		}
+	}
+}
+
+// TestReferenceLibraryEdgeCaseIdentifiersPassThrough proves the library's own
+// data is never repaired: the collidables Preset keeps its repeated
+// identifiers, and the identifiers no SDE maps (1211, 4748) ride through
+// verbatim. Only an unresolvable Group name in our source is fatal.
+func TestReferenceLibraryEdgeCaseIdentifiersPassThrough(t *testing.T) {
+	pack, ok := referencePack(t)
+	if !ok {
+		conformanceSkipped = true
+		t.Skip("reference pack unavailable (offline?); skipping library edge-case conformance — run without -short to require it")
+	}
+
+	emitted := generateWith(t, skeletonSource(), overview.Options{
+		SDEGroups:     []byte(skeletonSDEGroups),
+		ReferencePack: pack,
+	})
+	ours := decodeGeneric(t, emitted)
+	theirs := decodeGeneric(t, pack)
+
+	ourEntries := presetEntriesFrom(t, ours)
+	referenceEntries := presetEntriesFrom(t, theirs)
+
+	const (
+		collidables = "<color=0xFFFF6666>✜ = CovOps: Collidables</color>"
+		dscanAll    = "<color=0xFFFD96CF>※ --- D-Scan: All</color>"
+	)
+
+	// The library's repeated identifiers survive untouched. The collidables
+	// Preset carries thirty of them across 675 entries; if it ever stops, this
+	// tolerance is no longer being exercised.
+	groups := groupsOf(t, ourEntries[collidables])
+	seen := map[int]bool{}
+	duplicates := 0
+	for _, id := range groups {
+		if seen[id] {
+			duplicates++
+		}
+		seen[id] = true
+	}
+	if duplicates == 0 {
+		t.Error("collidables Preset lost its repeated identifiers; the tolerance is untested")
+	}
+	if !reflect.DeepEqual(groups, groupsOf(t, referenceEntries[collidables])) {
+		t.Error("collidables Preset's Group list was not carried through verbatim")
+	}
+
+	// Identifiers no SDE maps survive untouched too: 1211 and 4748 sit in this
+	// Preset's whitelist and must not be dropped or resolved.
+	orphans := groupsOf(t, ourEntries[dscanAll])
+	for _, orphan := range []int{1211, 4748} {
+		if !contains(orphans, orphan) {
+			t.Errorf("D-Scan: All no longer carries unresolvable identifier %d", orphan)
+		}
+	}
+	if !reflect.DeepEqual(orphans, groupsOf(t, referenceEntries[dscanAll])) {
+		t.Error("D-Scan: All's Group list was not carried through verbatim")
+	}
+}
+
+// TestTabBindsLoadedLibraryPreset proves a Tab can bind an untouched Z-S Preset
+// from the real pack by markup-free name, and that the emitted reference is the
+// library's exact markup-bearing name.
+func TestTabBindsLoadedLibraryPreset(t *testing.T) {
+	pack, ok := referencePack(t)
+	if !ok {
+		conformanceSkipped = true
+		t.Skip("reference pack unavailable (offline?); skipping loaded-library tab binding — run without -short to require it")
+	}
+
+	const loadedPreset = "<color=0xFFFFFFFF>✈ Travel (-Ship +Sta)</color>"
+	names := presetNamesByMarkupFreeName(t, decodeGeneric(t, pack))
+	if names["✈ Travel (-Ship +Sta)"] != loadedPreset {
+		t.Fatalf("fixture assumption broken: the reference pack's name is %q", names["✈ Travel (-Ship +Sta)"])
+	}
+
+	src := skeletonSource()
+	src.Tabs = []byte("tabs:\n  - name: \"<b> Travel </b>\"\n    list: \"✈ Travel (-Ship +Sta)\"\n    bracket: Engage\n")
+	emitted := generateWith(t, src, overview.Options{
+		SDEGroups:     []byte(skeletonSDEGroups),
+		ReferencePack: pack,
+	})
+	doc := decodeGeneric(t, emitted)
+	tabs := doc["tabSetup"].([]any)
+	tab := tabs[0].([]any)
+	if got := lookup(t, tab[1].([]any), "overview"); got != loadedPreset {
+		t.Errorf("tab overview = %q, want the reference pack's exact name %q", got, loadedPreset)
+	}
+}
+
+// presetEntriesFrom decodes a profile's Presets into a map keyed by exact
+// name. The generator tests have their own copy; this one keeps the
+// conformance assertions independent of that package's helpers.
+func presetEntriesFrom(t *testing.T, doc map[string]any) map[string]any {
+	t.Helper()
+	presets, ok := doc["presets"].([]any)
+	if !ok {
+		t.Fatalf("presets = %#v, want a sequence", doc["presets"])
+	}
+	entries := make(map[string]any, len(presets))
+	for i, raw := range presets {
+		entry, ok := raw.([]any)
+		if !ok || len(entry) != 2 {
+			t.Fatalf("presets[%d] = %#v, want [name, body]", i, raw)
+		}
+		name, ok := entry[0].(string)
+		if !ok {
+			t.Fatalf("presets[%d] name = %#v, want a string", i, entry[0])
+		}
+		entries[name] = entry[1]
+	}
+	return entries
+}
+
+// groupsOf reads a preset body's Group identifier list.
+func groupsOf(t *testing.T, body any) []int {
+	t.Helper()
+	pairs, ok := body.([]any)
+	if !ok {
+		t.Fatalf("preset body = %#v, want pairs", body)
+	}
+	groups, ok := lookup(t, pairs, "groups").([]any)
+	if !ok {
+		t.Fatalf("preset groups = %#v, want a sequence", lookup(t, pairs, "groups"))
+	}
+	ids := make([]int, 0, len(groups))
+	for _, raw := range groups {
+		id, ok := raw.(int)
+		if !ok {
+			t.Fatalf("Group identifier = %#v, want an integer", raw)
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// assertAuthoredPresetNamesHaveMarkup checks the Presets we author carry the
+// client's colour markup in its exact 0xAARRGGBB form. The reference pack's
+// own bracket Presets are legitimately plain text, so names the pack already
+// carries are exempt — the library rides through exactly as it was shipped.
+func assertAuthoredPresetNamesHaveMarkup(t *testing.T, ours, theirs map[string]any) {
+	t.Helper()
+	reference := map[string]bool{}
+	for _, raw := range theirs["presets"].([]any) {
+		name, _ := raw.([]any)[0].(string)
+		reference[name] = true
+	}
+
+	presets := ours["presets"].([]any)
 	if len(presets) == 0 {
 		t.Fatal("emitted document has no presets")
 	}
+	authored := 0
 	for i, raw := range presets {
 		name, _ := raw.([]any)[0].(string)
-		if !colorMarkup.MatchString(name) {
-			t.Errorf("presets[%d] name %q is not <color=0xAARRGGBB>…</color>", i, name)
+		if reference[name] {
+			continue
 		}
+		authored++
+		if !colorMarkup.MatchString(name) {
+			t.Errorf("authored presets[%d] name %q is not <color=0xAARRGGBB>…</color>", i, name)
+		}
+	}
+	if authored == 0 {
+		t.Error("emitted document carries no authored Preset; the overlay assertion would be vacuous")
 	}
 }
 
