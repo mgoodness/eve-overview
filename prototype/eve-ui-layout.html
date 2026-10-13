@@ -218,7 +218,7 @@ function buildD(){
     hud, deck,
     win('left:8px;top:8px;width:108px;height:198px','Local','9',
         `<div class="local" style="columns:1">${LOCAL.map(n=>`<div>${n}</div>`).join('')}</div>`),
-    win('left:8px;top:214px;width:208px;bottom:8px','Comms','stacked',
+    win('left:8px;top:214px;width:520px;height:234px','Comms','stacked',
         tabstrip(['Fleet','Corp','Alliance','Pvt'],'Fleet') +
         `<div style="padding:6px 8px;color:var(--muted)"><span class="f">FC:</span> hold on the hole<br>[fleet] align to home<br>[fleet] warp to ping</div>
          <div style="padding:6px 8px;color:var(--muted);border-top:1px solid var(--line)">[intel] hole C4 &rarr; 3 jumps</div>`),
