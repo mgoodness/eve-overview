@@ -146,3 +146,38 @@ blinking background for war targets."*
    profile permissive. Switching bases is an [ADR-0001](../adr/0001-account-wide-union-profile.md)
    / [ADR-0002](../adr/0002-ten-tab-roster.md)-level decision — the roster and four
    authored presets would be re-derived — not a pin bump.
+
+## Sources
+
+Primary and near-primary pages on overview and UI settings, grouped. Pages cited
+inline above are omitted; this is the wider reading list, including the
+layout material a "how to fly it" guide would draw on.
+
+**First-party (CCP / Fenris)**
+
+- *Overview Settings* — <https://support.eveonline.com/hc/en-us/articles/203273831-Overview-Settings>. The canonical mechanics: 20 tabs, filters vs bracket filters, the Exception/State hierarchy, colortag/background priority, columns, ship labels, import/export, account-wide scope.
+- *User Interface – Tips and Tricks* — <https://support.eveonline.com/hc/en-us/articles/7264100568220-User-Interface-Tips-and-Tricks>. Window layout: compact mode, margin size, locking a window's size and position, and moving an overview tab into its own window.
+- *Scanning* — <https://support.eveonline.com/hc/en-us/articles/203209902-Scanning>. Probe scanner and Sensor Overlay.
+- *Improving Photon UI* — <https://www.eveonline.com/news/view/improving-photon-ui>. Where multiple overview windows, per-tab columns and the presets→filters rename landed.
+- *February Update – Photon UI Full Rollout* — <https://www.eveonline.com/news/view/february-update-photon-ui-full-rollout>. Multiple overviews standard, tab cap raised, filter grouping, global compact mode.
+- *The future of probe and directional scanning UI* — <https://www.eveonline.com/news/view/the-future-of-probe-and-directional-scanning-ui>. D-scan window states, Show Scan Cone, Align with Camera.
+
+**EVE University**
+
+- *Overview* — <https://wiki.eveuniversity.org/Overview>; *Overview settings* — <https://wiki.eveuniversity.org/Overview_settings>; *Overview manipulation* — <https://wiki.eveuniversity.org/Overview_manipulation>. The how-to triad; *manipulation* is the page that would help settle the comment-header question (#12).
+- *Directional Scanner Guide* — <https://wiki.eveuniversity.org/Directional_Scanner_Guide>. Range/angle, the filter menu, "active overview", and the statement that d-scan ignores state settings.
+- *Cloaking* — <https://wiki.eveuniversity.org/Cloaking>; *Wormhole scouting* — <https://wiki.eveuniversity.org/Wormhole_Scouting>. The 2,000 m decloak rule and J-space scan discipline.
+- *Varius Arcturus' "New Overview"* — <https://wiki.eveuniversity.org/User:Paul_knuth/New_Overview> (PDF: <https://eve-files.com/media/1010/varius_arcturus_overview_guide_1.8.pdf>). A step-by-step walkthrough with a Wormhole preset and a screen-layout section.
+
+**Layout and UI (community)**
+
+- *Kismeteer's EVE UI guide* — <https://www.wckg.net/Newbie/eve-ui>. Practical layout and d-scan setup, by the current Z-S maintainer.
+- *EVE Online 2026 Guide — UI & HUD* — <https://hardlygospel.github.io/eve-online-2026-guide/skills-navigation/>. A concrete recommended window arrangement.
+- *[Photon UI] Multiple Overviews feedback* — <https://forums.eveonline.com/t/photon-ui-feature-preview-multiple-overviews-feedback-thread/385591>; *Photon UI Setup for all Accounts* — <https://forums.eveonline.com/t/photon-ui-setup-for-all-accounts/395746>. Multi-window behaviour and the layout-copy pain.
+
+**Prior art — source→compile generators**
+
+- *rossos/eve-pog* — <https://github.com/rossos/eve-pog>. Named groups → presets → tabs → compiled EVE-compatible YAML; the closest architectural twin to this repository's generator.
+- *Evansenko's Overview Generator* — <https://io.evansosenko.com/eve-overview/>. Another parts → generate → import project.
+
+**Notable discrepancy.** The all-brackets toggle hotkey is documented inconsistently: EVE University's *Overview* page says `Alt/Option+Z`, while the 2026 community guide says `Alt+Shift+B`. Verify in-client rather than trusting either.
